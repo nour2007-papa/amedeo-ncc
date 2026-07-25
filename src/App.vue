@@ -1195,7 +1195,7 @@ onUnmounted(() => {
     --line:#262B31;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
+  html{scroll-behavior:smooth;overflow-x:hidden;max-width:100vw;}
   body{
     background:var(--ink);
     color:var(--paper);
@@ -1203,6 +1203,9 @@ onUnmounted(() => {
     font-weight:300;
     line-height:1.5;
     -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    max-width:100vw;
+    position:relative;
   }
   a{color:inherit;text-decoration:none;}
   .mono{font-family:'IBM Plex Mono',monospace;}

@@ -749,6 +749,7 @@ const form = reactive({
   details: '',
   gdpr: false,
   lastAutoNote: null,
+  website: '', // honeypot — must stay empty
 });
 const showSuccess = ref(false);
 
@@ -797,6 +798,18 @@ function onCardAction(trip) {
 const WHATSAPP_NUMBER = '393520003122';
 
 function sendBookingToWhatsApp() {
+  // Honeypot tripped: a bot filled the hidden field. Reset the form and
+  // stop here — no WhatsApp message, no visible error (don't tip the bot
+  // off that it was detected).
+  if (form.website) {
+    Object.assign(form, {
+      name: '', country: '+39', phone: '', service: '', people: '',
+      flight: '', hotel: '', bags: '', details: '', gdpr: false,
+      lastAutoNote: null, website: '',
+    });
+    return;
+  }
+
   const lines = [
     `📋 Nuova richiesta di prenotazione — Amedeo NCC`,
     `Nome: ${form.name}`,
@@ -815,7 +828,8 @@ function sendBookingToWhatsApp() {
 
   Object.assign(form, {
     name: '', country: '+39', phone: '', service: '', people: '',
-    flight: '', hotel: '', bags: '', details: '', gdpr: false, lastAutoNote: null,
+    flight: '', hotel: '', bags: '', details: '', gdpr: false,
+    lastAutoNote: null, website: '',
   });
   setTimeout(() => (showSuccess.value = false), 4000);
 }
@@ -871,6 +885,34 @@ const vReveal = {
 };
 
 const navOpen = ref(false);
+
+/* =========================================================
+   Fix: on some Android browsers (notably MIUI's built-in browser
+   and some Chrome builds), `position: fixed` is calculated against
+   the full layout viewport rather than the currently visible visual
+   viewport. That leaves fixed elements like the WhatsApp button
+   sitting below the fold — invisible — until the address bar
+   collapses on scroll. We measure the gap with the visualViewport
+   API and shift the button up by exactly that amount via a CSS
+   variable, so it's always inside the visible area.
+   ========================================================= */
+function syncFabToViewport() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const hiddenBottom = window.innerHeight - (vv.height + vv.offsetTop);
+  document.documentElement.style.setProperty('--fab-shift', `${Math.max(0, hiddenBottom)}px`);
+}
+onMounted(() => {
+  syncFabToViewport();
+  window.visualViewport?.addEventListener('resize', syncFabToViewport);
+  window.visualViewport?.addEventListener('scroll', syncFabToViewport);
+  window.addEventListener('orientationchange', syncFabToViewport);
+});
+onUnmounted(() => {
+  window.visualViewport?.removeEventListener('resize', syncFabToViewport);
+  window.visualViewport?.removeEventListener('scroll', syncFabToViewport);
+  window.removeEventListener('orientationchange', syncFabToViewport);
+});
 </script>
 
 <template>
@@ -1013,6 +1055,13 @@ const navOpen = ref(false);
   </div>
   <div class="contact-grid">
     <form id="booking-form" @submit.prevent="sendBookingToWhatsApp">
+      <!-- Honeypot anti-spam: real visitors never see or fill this field.
+           Bots that blindly auto-fill every input on the page usually do,
+           so if it has a value we silently drop the submission. -->
+      <div class="hp-field" aria-hidden="true">
+        <label for="f-website">Website</label>
+        <input type="text" id="f-website" v-model="form.website" tabindex="-1" autocomplete="off">
+      </div>
       <div v-if="showSuccess" class="form-alert" style="display:block;">{{ t.f_success_alert }}</div>
       <input type="text" v-model.trim="form.name" :placeholder="t.f_name" required maxlength="60">
       <div class="phone-row">
@@ -1440,16 +1489,29 @@ const navOpen = ref(false);
     .reveal{opacity:1;transform:none;transition:none;}
   }
 
-  /* WHATSAPP FLOATING BUTTON */
+  /* Honeypot anti-spam field: hidden from real visitors, but not with
+     display:none/visibility:hidden — some bots skip those and only fill
+     visually-hidden-but-"present" fields, which is exactly what we want. */
+  .hp-field{
+    position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;
+    overflow:hidden;
+  }
+
+  /* WHATSAPP FLOATING BUTTON
+     --fab-shift is kept in sync with JS (see syncFabToViewport) to fix a
+     known Android bug (MIUI browser / some Chrome builds): position:fixed
+     is computed against the full layout viewport instead of the currently
+     visible visual viewport, so the button sits below the fold and is
+     invisible until the address bar collapses on scroll. */
   .whatsapp-fab{
     position:fixed;bottom:100px;right:22px;z-index:9999;
     width:58px;height:58px;border-radius:50%;
     background:#25D366;display:flex;align-items:center;justify-content:center;
     box-shadow:0 6px 20px rgba(0,0,0,0.35);
     transition:transform .2s;
-    -webkit-transform:translateZ(0);transform:translateZ(0);
+    transform:translateZ(0) translateY(calc(-1 * var(--fab-shift, 0px)));
   }
-  .whatsapp-fab:hover{transform:translateZ(0) scale(1.08);}
+  .whatsapp-fab:hover{transform:translateZ(0) translateY(calc(-1 * var(--fab-shift, 0px))) scale(1.08);}
   .whatsapp-fab svg{width:30px;height:30px;}
   @media(max-width:760px){
     .whatsapp-fab{width:52px;height:52px;bottom:90px;right:16px;}

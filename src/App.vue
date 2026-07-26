@@ -141,7 +141,9 @@ const dict = {
     "cookie_text": "Utilizziamo solo cookie tecnici necessari al funzionamento di questo sito. Cliccando \"Accetta\" acconsenti all'uso dei cookie. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">Informativa</a>",
     "cookie_accept": "Accetta",
     "cookie_dismiss": "Chiudi",
-    "f_service_placeholder": "Scegli il servizio"
+    "f_service_placeholder": "Scegli il servizio",
+    "f_country_search": "Cerca paese o prefisso...",
+    "f_country_none": "Nessun paese trovato"
   },
   "en": {
     "routes": [
@@ -278,7 +280,9 @@ const dict = {
     "cookie_text": "We only use technical cookies necessary for this site to function. By clicking \"Accept\" you consent to the use of cookies. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">Policy</a>",
     "cookie_accept": "Accept",
     "cookie_dismiss": "Dismiss",
-    "f_service_placeholder": "Choose a service"
+    "f_service_placeholder": "Choose a service",
+    "f_country_search": "Search country or code...",
+    "f_country_none": "No country found"
   },
   "ar": {
     "routes": [
@@ -415,210 +419,211 @@ const dict = {
     "cookie_text": "نستخدم فقط ملفات تعريف الارتباط التقنية الضرورية لتشغيل هذا الموقع. بالنقر على \"قبول\" فإنك توافق على استخدام ملفات تعريف الارتباط. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">السياسة</a>",
     "cookie_accept": "قبول",
     "cookie_dismiss": "إغلاق",
-    "f_service_placeholder": "اختر الخدمة"
+    "f_service_placeholder": "اختر الخدمة",
+    "f_country_search": "ابحث عن دولة أو كود...",
+    "f_country_none": "لا توجد نتائج"
   }
 };
 
 /* Phone country-code list for the booking form */
 const countryCodes = [
-  { code: '+20', label: '+20 مصر' },
-  { code: '+966', label: '+966 السعودية' },
-  { code: '+971', label: '+971 الإمارات' },
-  { code: '+965', label: '+965 الكويت' },
-  { code: '+974', label: '+974 قطر' },
-  { code: '+973', label: '+973 البحرين' },
-  { code: '+968', label: '+968 عمان' },
-  { code: '+962', label: '+962 الأردن' },
-  { code: '+961', label: '+961 لبنان' },
-  { code: '+963', label: '+963 سوريا' },
-  { code: '+964', label: '+964 العراق' },
-  { code: '+967', label: '+967 اليمن' },
-  { code: '+970', label: '+970 فلسطين' },
-  { code: '+212', label: '+212 المغرب' },
-  { code: '+213', label: '+213 الجزائر' },
-  { code: '+216', label: '+216 تونس' },
-  { code: '+218', label: '+218 ليبيا' },
-  { code: '+249', label: '+249 السودان' },
-  { code: '+252', label: '+252 الصومال' },
-  { code: '+222', label: '+222 موريتانيا' },
-  { code: '+269', label: '+269 جزر القمر' },
-  { code: '+253', label: '+253 جيبوتي' },
-  { code: '+93', label: '+93 Afghanistan' },
-  { code: '+355', label: '+355 Albania' },
-  { code: '+213', label: '+213 Algeria' },
-  { code: '+376', label: '+376 Andorra' },
-  { code: '+244', label: '+244 Angola' },
-  { code: '+1268', label: '+1268 Antigua' },
-  { code: '+54', label: '+54 Argentina' },
-  { code: '+374', label: '+374 Armenia' },
-  { code: '+61', label: '+61 Australia' },
-  { code: '+43', label: '+43 Austria' },
-  { code: '+994', label: '+994 Azerbaijan' },
-  { code: '+1242', label: '+1242 Bahamas' },
-  { code: '+880', label: '+880 Bangladesh' },
-  { code: '+1246', label: '+1246 Barbados' },
-  { code: '+375', label: '+375 Belarus' },
-  { code: '+32', label: '+32 Belgio' },
-  { code: '+501', label: '+501 Belize' },
-  { code: '+229', label: '+229 Benin' },
-  { code: '+975', label: '+975 Bhutan' },
-  { code: '+591', label: '+591 Bolivia' },
-  { code: '+387', label: '+387 Bosnia' },
-  { code: '+267', label: '+267 Botswana' },
-  { code: '+55', label: '+55 Brasile' },
-  { code: '+673', label: '+673 Brunei' },
-  { code: '+359', label: '+359 Bulgaria' },
-  { code: '+226', label: '+226 Burkina Faso' },
-  { code: '+257', label: '+257 Burundi' },
-  { code: '+855', label: '+855 Cambodia' },
-  { code: '+237', label: '+237 Cameroon' },
-  { code: '+1', label: '+1 Canada' },
-  { code: '+238', label: '+238 Cape Verde' },
-  { code: '+236', label: '+236 Central African Rep.' },
-  { code: '+235', label: '+235 Chad' },
-  { code: '+56', label: '+56 Chile' },
-  { code: '+86', label: '+86 Cina' },
-  { code: '+57', label: '+57 Colombia' },
-  { code: '+242', label: '+242 Congo' },
-  { code: '+243', label: '+243 Congo RD' },
-  { code: '+506', label: '+506 Costa Rica' },
-  { code: '+385', label: '+385 Croazia' },
-  { code: '+53', label: '+53 Cuba' },
-  { code: '+357', label: '+357 Cipro' },
-  { code: '+420', label: '+420 Rep. Ceca' },
-  { code: '+45', label: '+45 Danimarca' },
-  { code: '+1767', label: '+1767 Dominica' },
-  { code: '+1809', label: '+1809 Rep. Dominicana' },
-  { code: '+593', label: '+593 Ecuador' },
-  { code: '+503', label: '+503 El Salvador' },
-  { code: '+240', label: '+240 Guinea Equatoriale' },
-  { code: '+291', label: '+291 Eritrea' },
-  { code: '+372', label: '+372 Estonia' },
-  { code: '+268', label: '+268 Eswatini' },
-  { code: '+251', label: '+251 Etiopia' },
-  { code: '+679', label: '+679 Fiji' },
-  { code: '+358', label: '+358 Finlandia' },
-  { code: '+33', label: '+33 Francia' },
-  { code: '+241', label: '+241 Gabon' },
-  { code: '+220', label: '+220 Gambia' },
-  { code: '+995', label: '+995 Georgia' },
-  { code: '+49', label: '+49 Germania' },
-  { code: '+233', label: '+233 Ghana' },
-  { code: '+30', label: '+30 Grecia' },
-  { code: '+1473', label: '+1473 Grenada' },
-  { code: '+502', label: '+502 Guatemala' },
-  { code: '+224', label: '+224 Guinea' },
-  { code: '+245', label: '+245 Guinea-Bissau' },
-  { code: '+592', label: '+592 Guyana' },
-  { code: '+509', label: '+509 Haiti' },
-  { code: '+504', label: '+504 Honduras' },
-  { code: '+852', label: '+852 Hong Kong' },
-  { code: '+36', label: '+36 Ungheria' },
-  { code: '+354', label: '+354 Islanda' },
-  { code: '+91', label: '+91 India' },
-  { code: '+62', label: '+62 Indonesia' },
-  { code: '+98', label: '+98 Iran' },
-  { code: '+353', label: '+353 Irlanda' },
-  { code: '+972', label: '+972 Israele' },
-  { code: '+1876', label: '+1876 Giamaica' },
-  { code: '+81', label: '+81 Giappone' },
-  { code: '+7', label: '+7 Kazakhstan' },
-  { code: '+254', label: '+254 Kenya' },
-  { code: '+686', label: '+686 Kiribati' },
-  { code: '+850', label: '+850 Corea del Nord' },
-  { code: '+82', label: '+82 Corea del Sud' },
-  { code: '+383', label: '+383 Kosovo' },
-  { code: '+996', label: '+996 Kyrgyzstan' },
-  { code: '+856', label: '+856 Laos' },
-  { code: '+371', label: '+371 Lettonia' },
-  { code: '+266', label: '+266 Lesotho' },
-  { code: '+231', label: '+231 Liberia' },
-  { code: '+423', label: '+423 Liechtenstein' },
-  { code: '+370', label: '+370 Lituania' },
-  { code: '+352', label: '+352 Lussemburgo' },
-  { code: '+853', label: '+853 Macao' },
-  { code: '+261', label: '+261 Madagascar' },
-  { code: '+265', label: '+265 Malawi' },
-  { code: '+60', label: '+60 Malesia' },
-  { code: '+960', label: '+960 Maldive' },
-  { code: '+223', label: '+223 Mali' },
-  { code: '+356', label: '+356 Malta' },
-  { code: '+692', label: '+692 Marshall' },
-  { code: '+230', label: '+230 Mauritius' },
-  { code: '+52', label: '+52 Messico' },
-  { code: '+691', label: '+691 Micronesia' },
-  { code: '+373', label: '+373 Moldavia' },
-  { code: '+377', label: '+377 Monaco' },
-  { code: '+976', label: '+976 Mongolia' },
-  { code: '+382', label: '+382 Montenegro' },
-  { code: '+258', label: '+258 Mozambico' },
-  { code: '+95', label: '+95 Myanmar' },
-  { code: '+264', label: '+264 Namibia' },
-  { code: '+674', label: '+674 Nauru' },
-  { code: '+977', label: '+977 Nepal' },
-  { code: '+31', label: '+31 Paesi Bassi' },
-  { code: '+64', label: '+64 Nuova Zelanda' },
-  { code: '+505', label: '+505 Nicaragua' },
-  { code: '+227', label: '+227 Niger' },
-  { code: '+234', label: '+234 Nigeria' },
-  { code: '+389', label: '+389 N. Macedonia' },
-  { code: '+47', label: '+47 Norvegia' },
-  { code: '+92', label: '+92 Pakistan' },
-  { code: '+680', label: '+680 Palau' },
-  { code: '+507', label: '+507 Panama' },
-  { code: '+675', label: '+675 Papua N.G.' },
-  { code: '+595', label: '+595 Paraguay' },
-  { code: '+51', label: '+51 Perù' },
-  { code: '+63', label: '+63 Filippine' },
-  { code: '+48', label: '+48 Polonia' },
-  { code: '+351', label: '+351 Portogallo' },
-  { code: '+40', label: '+40 Romania' },
-  { code: '+7', label: '+7 Russia' },
-  { code: '+250', label: '+250 Rwanda' },
-  { code: '+1869', label: '+1869 Saint Kitts' },
-  { code: '+1758', label: '+1758 Saint Lucia' },
-  { code: '+1784', label: '+1784 Saint Vincent' },
-  { code: '+685', label: '+685 Samoa' },
-  { code: '+378', label: '+378 San Marino' },
-  { code: '+239', label: '+239 São Tomé' },
-  { code: '+221', label: '+221 Senegal' },
-  { code: '+381', label: '+381 Serbia' },
-  { code: '+248', label: '+248 Seychelles' },
-  { code: '+232', label: '+232 Sierra Leone' },
-  { code: '+65', label: '+65 Singapore' },
-  { code: '+421', label: '+421 Slovacchia' },
-  { code: '+386', label: '+386 Slovenia' },
-  { code: '+677', label: '+677 Solomon' },
-  { code: '+27', label: '+27 Sudafrica' },
-  { code: '+211', label: '+211 Sud Sudan' },
-  { code: '+34', label: '+34 Spagna' },
-  { code: '+94', label: '+94 Sri Lanka' },
-  { code: '+597', label: '+597 Suriname' },
-  { code: '+46', label: '+46 Svezia' },
-  { code: '+41', label: '+41 Svizzera' },
-  { code: '+886', label: '+886 Taiwan' },
-  { code: '+992', label: '+992 Tagikistan' },
-  { code: '+255', label: '+255 Tanzania' },
-  { code: '+66', label: '+66 Thailandia' },
-  { code: '+670', label: '+670 Timor Est' },
-  { code: '+228', label: '+228 Togo' },
-  { code: '+676', label: '+676 Tonga' },
-  { code: '+1868', label: '+1868 Trinidad' },
-  { code: '+90', label: '+90 Turchia' },
-  { code: '+993', label: '+993 Turkmenistan' },
-  { code: '+688', label: '+688 Tuvalu' },
-  { code: '+256', label: '+256 Uganda' },
-  { code: '+380', label: '+380 Ucraina' },
-  { code: '+44', label: '+44 Regno Unito' },
-  { code: '+1', label: '+1 Stati Uniti' },
-  { code: '+598', label: '+598 Uruguay' },
-  { code: '+998', label: '+998 Uzbekistan' },
-  { code: '+678', label: '+678 Vanuatu' },
-  { code: '+379', label: '+379 Vaticano' },
-  { code: '+58', label: '+58 Venezuela' },
-  { code: '+84', label: '+84 Vietnam' },
-  { code: '+260', label: '+260 Zambia' },
-  { code: '+263', label: '+263 Zimbabwe' },
+  { code: '+966', name: 'السعودية', iso2: 'sa' },
+  { code: '+971', name: 'الإمارات', iso2: 'ae' },
+  { code: '+965', name: 'الكويت', iso2: 'kw' },
+  { code: '+974', name: 'قطر', iso2: 'qa' },
+  { code: '+973', name: 'البحرين', iso2: 'bh' },
+  { code: '+968', name: 'عمان', iso2: 'om' },
+  { code: '+20', name: 'مصر', iso2: 'eg' },
+  { code: '+962', name: 'الأردن', iso2: 'jo' },
+  { code: '+961', name: 'لبنان', iso2: 'lb' },
+  { code: '+963', name: 'سوريا', iso2: 'sy' },
+  { code: '+964', name: 'العراق', iso2: 'iq' },
+  { code: '+967', name: 'اليمن', iso2: 'ye' },
+  { code: '+970', name: 'فلسطين', iso2: 'ps' },
+  { code: '+212', name: 'المغرب', iso2: 'ma' },
+  { code: '+213', name: 'الجزائر', iso2: 'dz' },
+  { code: '+216', name: 'تونس', iso2: 'tn' },
+  { code: '+218', name: 'ليبيا', iso2: 'ly' },
+  { code: '+249', name: 'السودان', iso2: 'sd' },
+  { code: '+252', name: 'الصومال', iso2: 'so' },
+  { code: '+222', name: 'موريتانيا', iso2: 'mr' },
+  { code: '+269', name: 'جزر القمر', iso2: 'km' },
+  { code: '+253', name: 'جيبوتي', iso2: 'dj' },
+  { code: '+355', name: 'Albania', iso2: 'al' },
+  { code: '+376', name: 'Andorra', iso2: 'ad' },
+  { code: '+43', name: 'Austria', iso2: 'at' },
+  { code: '+375', name: 'Belarus', iso2: 'by' },
+  { code: '+32', name: 'Belgio', iso2: 'be' },
+  { code: '+387', name: 'Bosnia', iso2: 'ba' },
+  { code: '+359', name: 'Bulgaria', iso2: 'bg' },
+  { code: '+385', name: 'Croazia', iso2: 'hr' },
+  { code: '+357', name: 'Cipro', iso2: 'cy' },
+  { code: '+420', name: 'Rep. Ceca', iso2: 'cz' },
+  { code: '+45', name: 'Danimarca', iso2: 'dk' },
+  { code: '+372', name: 'Estonia', iso2: 'ee' },
+  { code: '+358', name: 'Finlandia', iso2: 'fi' },
+  { code: '+33', name: 'Francia', iso2: 'fr' },
+  { code: '+49', name: 'Germania', iso2: 'de' },
+  { code: '+30', name: 'Grecia', iso2: 'gr' },
+  { code: '+36', name: 'Ungheria', iso2: 'hu' },
+  { code: '+354', name: 'Islanda', iso2: 'is' },
+  { code: '+353', name: 'Irlanda', iso2: 'ie' },
+  { code: '+383', name: 'Kosovo', iso2: 'xk' },
+  { code: '+371', name: 'Lettonia', iso2: 'lv' },
+  { code: '+423', name: 'Liechtenstein', iso2: 'li' },
+  { code: '+370', name: 'Lituania', iso2: 'lt' },
+  { code: '+352', name: 'Lussemburgo', iso2: 'lu' },
+  { code: '+356', name: 'Malta', iso2: 'mt' },
+  { code: '+373', name: 'Moldavia', iso2: 'md' },
+  { code: '+377', name: 'Monaco', iso2: 'mc' },
+  { code: '+382', name: 'Montenegro', iso2: 'me' },
+  { code: '+31', name: 'Paesi Bassi', iso2: 'nl' },
+  { code: '+389', name: 'N. Macedonia', iso2: 'mk' },
+  { code: '+47', name: 'Norvegia', iso2: 'no' },
+  { code: '+48', name: 'Polonia', iso2: 'pl' },
+  { code: '+351', name: 'Portogallo', iso2: 'pt' },
+  { code: '+40', name: 'Romania', iso2: 'ro' },
+  { code: '+7', name: 'Russia', iso2: 'ru' },
+  { code: '+378', name: 'San Marino', iso2: 'sm' },
+  { code: '+381', name: 'Serbia', iso2: 'rs' },
+  { code: '+421', name: 'Slovacchia', iso2: 'sk' },
+  { code: '+386', name: 'Slovenia', iso2: 'si' },
+  { code: '+34', name: 'Spagna', iso2: 'es' },
+  { code: '+46', name: 'Svezia', iso2: 'se' },
+  { code: '+41', name: 'Svizzera', iso2: 'ch' },
+  { code: '+380', name: 'Ucraina', iso2: 'ua' },
+  { code: '+44', name: 'Regno Unito', iso2: 'gb' },
+  { code: '+379', name: 'Vaticano', iso2: 'va' },
+  { code: '+93', name: 'Afghanistan', iso2: 'af' },
+  { code: '+244', name: 'Angola', iso2: 'ao' },
+  { code: '+1268', name: 'Antigua', iso2: 'ag' },
+  { code: '+54', name: 'Argentina', iso2: 'ar' },
+  { code: '+374', name: 'Armenia', iso2: 'am' },
+  { code: '+61', name: 'Australia', iso2: 'au' },
+  { code: '+994', name: 'Azerbaijan', iso2: 'az' },
+  { code: '+1242', name: 'Bahamas', iso2: 'bs' },
+  { code: '+880', name: 'Bangladesh', iso2: 'bd' },
+  { code: '+1246', name: 'Barbados', iso2: 'bb' },
+  { code: '+501', name: 'Belize', iso2: 'bz' },
+  { code: '+229', name: 'Benin', iso2: 'bj' },
+  { code: '+975', name: 'Bhutan', iso2: 'bt' },
+  { code: '+591', name: 'Bolivia', iso2: 'bo' },
+  { code: '+267', name: 'Botswana', iso2: 'bw' },
+  { code: '+55', name: 'Brasile', iso2: 'br' },
+  { code: '+673', name: 'Brunei', iso2: 'bn' },
+  { code: '+226', name: 'Burkina Faso', iso2: 'bf' },
+  { code: '+257', name: 'Burundi', iso2: 'bi' },
+  { code: '+855', name: 'Cambodia', iso2: 'kh' },
+  { code: '+237', name: 'Cameroon', iso2: 'cm' },
+  { code: '+1', name: 'Canada', iso2: 'ca' },
+  { code: '+238', name: 'Cape Verde', iso2: 'cv' },
+  { code: '+236', name: 'Central African Rep.', iso2: 'cf' },
+  { code: '+235', name: 'Chad', iso2: 'td' },
+  { code: '+56', name: 'Chile', iso2: 'cl' },
+  { code: '+86', name: 'Cina', iso2: 'cn' },
+  { code: '+57', name: 'Colombia', iso2: 'co' },
+  { code: '+242', name: 'Congo', iso2: 'cg' },
+  { code: '+243', name: 'Congo RD', iso2: 'cd' },
+  { code: '+506', name: 'Costa Rica', iso2: 'cr' },
+  { code: '+53', name: 'Cuba', iso2: 'cu' },
+  { code: '+1767', name: 'Dominica', iso2: 'dm' },
+  { code: '+1809', name: 'Rep. Dominicana', iso2: 'do' },
+  { code: '+593', name: 'Ecuador', iso2: 'ec' },
+  { code: '+503', name: 'El Salvador', iso2: 'sv' },
+  { code: '+240', name: 'Guinea Equatoriale', iso2: 'gq' },
+  { code: '+291', name: 'Eritrea', iso2: 'er' },
+  { code: '+268', name: 'Eswatini', iso2: 'sz' },
+  { code: '+251', name: 'Etiopia', iso2: 'et' },
+  { code: '+679', name: 'Fiji', iso2: 'fj' },
+  { code: '+241', name: 'Gabon', iso2: 'ga' },
+  { code: '+220', name: 'Gambia', iso2: 'gm' },
+  { code: '+995', name: 'Georgia', iso2: 'ge' },
+  { code: '+233', name: 'Ghana', iso2: 'gh' },
+  { code: '+1473', name: 'Grenada', iso2: 'gd' },
+  { code: '+502', name: 'Guatemala', iso2: 'gt' },
+  { code: '+224', name: 'Guinea', iso2: 'gn' },
+  { code: '+245', name: 'Guinea-Bissau', iso2: 'gw' },
+  { code: '+592', name: 'Guyana', iso2: 'gy' },
+  { code: '+509', name: 'Haiti', iso2: 'ht' },
+  { code: '+504', name: 'Honduras', iso2: 'hn' },
+  { code: '+852', name: 'Hong Kong', iso2: 'hk' },
+  { code: '+91', name: 'India', iso2: 'in' },
+  { code: '+62', name: 'Indonesia', iso2: 'id' },
+  { code: '+98', name: 'Iran', iso2: 'ir' },
+  { code: '+972', name: 'Israele', iso2: 'il' },
+  { code: '+1876', name: 'Giamaica', iso2: 'jm' },
+  { code: '+81', name: 'Giappone', iso2: 'jp' },
+  { code: '+7', name: 'Kazakhstan', iso2: 'kz' },
+  { code: '+254', name: 'Kenya', iso2: 'ke' },
+  { code: '+686', name: 'Kiribati', iso2: 'ki' },
+  { code: '+850', name: 'Corea del Nord', iso2: 'kp' },
+  { code: '+82', name: 'Corea del Sud', iso2: 'kr' },
+  { code: '+996', name: 'Kyrgyzstan', iso2: 'kg' },
+  { code: '+856', name: 'Laos', iso2: 'la' },
+  { code: '+266', name: 'Lesotho', iso2: 'ls' },
+  { code: '+231', name: 'Liberia', iso2: 'lr' },
+  { code: '+853', name: 'Macao', iso2: 'mo' },
+  { code: '+261', name: 'Madagascar', iso2: 'mg' },
+  { code: '+265', name: 'Malawi', iso2: 'mw' },
+  { code: '+60', name: 'Malesia', iso2: 'my' },
+  { code: '+960', name: 'Maldive', iso2: 'mv' },
+  { code: '+223', name: 'Mali', iso2: 'ml' },
+  { code: '+692', name: 'Marshall', iso2: 'mh' },
+  { code: '+230', name: 'Mauritius', iso2: 'mu' },
+  { code: '+52', name: 'Messico', iso2: 'mx' },
+  { code: '+691', name: 'Micronesia', iso2: 'fm' },
+  { code: '+976', name: 'Mongolia', iso2: 'mn' },
+  { code: '+258', name: 'Mozambico', iso2: 'mz' },
+  { code: '+95', name: 'Myanmar', iso2: 'mm' },
+  { code: '+264', name: 'Namibia', iso2: 'na' },
+  { code: '+674', name: 'Nauru', iso2: 'nr' },
+  { code: '+977', name: 'Nepal', iso2: 'np' },
+  { code: '+64', name: 'Nuova Zelanda', iso2: 'nz' },
+  { code: '+505', name: 'Nicaragua', iso2: 'ni' },
+  { code: '+227', name: 'Niger', iso2: 'ne' },
+  { code: '+234', name: 'Nigeria', iso2: 'ng' },
+  { code: '+92', name: 'Pakistan', iso2: 'pk' },
+  { code: '+680', name: 'Palau', iso2: 'pw' },
+  { code: '+507', name: 'Panama', iso2: 'pa' },
+  { code: '+675', name: 'Papua N.G.', iso2: 'pg' },
+  { code: '+595', name: 'Paraguay', iso2: 'py' },
+  { code: '+51', name: 'Perù', iso2: 'pe' },
+  { code: '+63', name: 'Filippine', iso2: 'ph' },
+  { code: '+250', name: 'Rwanda', iso2: 'rw' },
+  { code: '+1869', name: 'Saint Kitts', iso2: 'kn' },
+  { code: '+1758', name: 'Saint Lucia', iso2: 'lc' },
+  { code: '+1784', name: 'Saint Vincent', iso2: 'vc' },
+  { code: '+685', name: 'Samoa', iso2: 'ws' },
+  { code: '+239', name: 'São Tomé', iso2: 'st' },
+  { code: '+221', name: 'Senegal', iso2: 'sn' },
+  { code: '+248', name: 'Seychelles', iso2: 'sc' },
+  { code: '+232', name: 'Sierra Leone', iso2: 'sl' },
+  { code: '+65', name: 'Singapore', iso2: 'sg' },
+  { code: '+677', name: 'Solomon', iso2: 'sb' },
+  { code: '+27', name: 'Sudafrica', iso2: 'za' },
+  { code: '+211', name: 'Sud Sudan', iso2: 'ss' },
+  { code: '+94', name: 'Sri Lanka', iso2: 'lk' },
+  { code: '+597', name: 'Suriname', iso2: 'sr' },
+  { code: '+886', name: 'Taiwan', iso2: 'tw' },
+  { code: '+992', name: 'Tagikistan', iso2: 'tj' },
+  { code: '+255', name: 'Tanzania', iso2: 'tz' },
+  { code: '+66', name: 'Thailandia', iso2: 'th' },
+  { code: '+670', name: 'Timor Est', iso2: 'tl' },
+  { code: '+228', name: 'Togo', iso2: 'tg' },
+  { code: '+676', name: 'Tonga', iso2: 'to' },
+  { code: '+1868', name: 'Trinidad', iso2: 'tt' },
+  { code: '+90', name: 'Turchia', iso2: 'tr' },
+  { code: '+993', name: 'Turkmenistan', iso2: 'tm' },
+  { code: '+688', name: 'Tuvalu', iso2: 'tv' },
+  { code: '+256', name: 'Uganda', iso2: 'ug' },
+  { code: '+1', name: 'Stati Uniti', iso2: 'us' },
+  { code: '+598', name: 'Uruguay', iso2: 'uy' },
+  { code: '+998', name: 'Uzbekistan', iso2: 'uz' },
+  { code: '+678', name: 'Vanuatu', iso2: 'vu' },
+  { code: '+58', name: 'Venezuela', iso2: 've' },
+  { code: '+84', name: 'Vietnam', iso2: 'vn' },
+  { code: '+260', name: 'Zambia', iso2: 'zm' },
+  { code: '+263', name: 'Zimbabwe', iso2: 'zw' },
 ];
 
 /* =========================================================
@@ -753,6 +758,48 @@ const form = reactive({
 });
 const showSuccess = ref(false);
 
+/* =========================================================
+   Custom country-code dropdown (replaces the native <select>).
+   Native <select> options can't show flag images at all, and the
+   emoji-flag fallback rendered inconsistently on Windows — so this
+   builds our own popup list with real flag images (flagcdn.com).
+   ========================================================= */
+const countryOpen = ref(false);
+const countrySearch = ref('');
+const selectedCountryIso2 = ref('it'); // matches the default form.country = '+39'
+const countrySelectRef = ref(null);
+
+const selectedCountry = computed(() =>
+  countryCodes.find(c => c.iso2 === selectedCountryIso2.value) ||
+  countryCodes.find(c => c.code === form.country) ||
+  countryCodes[0]
+);
+
+const filteredCountries = computed(() => {
+  const q = countrySearch.value.trim().toLowerCase();
+  if (!q) return countryCodes;
+  return countryCodes.filter(c =>
+    c.name.toLowerCase().includes(q) || c.code.includes(q)
+  );
+});
+
+function toggleCountryDropdown() {
+  countryOpen.value = !countryOpen.value;
+  if (countryOpen.value) countrySearch.value = '';
+}
+function selectCountry(c) {
+  form.country = c.code;
+  selectedCountryIso2.value = c.iso2;
+  countryOpen.value = false;
+}
+function handleCountryClickOutside(event) {
+  if (countryOpen.value && countrySelectRef.value && !countrySelectRef.value.contains(event.target)) {
+    countryOpen.value = false;
+  }
+}
+onMounted(() => document.addEventListener('click', handleCountryClickOutside));
+onUnmounted(() => document.removeEventListener('click', handleCountryClickOutside));
+
 function setAutoNote(note) {
   let text = form.details;
   if (form.lastAutoNote && text.endsWith(form.lastAutoNote)) {
@@ -807,6 +854,7 @@ function sendBookingToWhatsApp() {
       flight: '', hotel: '', bags: '', details: '', gdpr: false,
       lastAutoNote: null, website: '',
     });
+    selectedCountryIso2.value = 'it';
     return;
   }
 
@@ -831,6 +879,7 @@ function sendBookingToWhatsApp() {
     flight: '', hotel: '', bags: '', details: '', gdpr: false,
     lastAutoNote: null, website: '',
   });
+  selectedCountryIso2.value = 'it';
   setTimeout(() => (showSuccess.value = false), 4000);
 }
 
@@ -1065,9 +1114,24 @@ onUnmounted(() => {
       <div v-if="showSuccess" class="form-alert" style="display:block;">{{ t.f_success_alert }}</div>
       <input type="text" v-model.trim="form.name" :placeholder="t.f_name" required maxlength="60">
       <div class="phone-row">
-        <select id="f-country" v-model="form.country" aria-label="Prefisso">
-          <option v-for="c in countryCodes" :key="c.code + c.label" :value="c.code">{{ c.label }}</option>
-        </select>
+        <div class="country-select" ref="countrySelectRef" :class="{ open: countryOpen }">
+          <button type="button" class="country-select-btn" @click="toggleCountryDropdown" :aria-expanded="countryOpen" aria-haspopup="listbox">
+            <img :src="`https://flagcdn.com/24x18/${selectedCountry.iso2}.png`" :alt="selectedCountry.name" width="22" height="16" class="country-flag">
+            <span>{{ selectedCountry.code }}</span>
+            <svg class="country-chevron" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div v-if="countryOpen" class="country-dropdown" role="listbox">
+            <input type="text" v-model="countrySearch" class="country-search" :placeholder="t.f_country_search" @click.stop>
+            <div class="country-list">
+              <button type="button" v-for="c in filteredCountries" :key="c.code + c.iso2" class="country-item" role="option" @click="selectCountry(c)">
+                <img :src="`https://flagcdn.com/24x18/${c.iso2}.png`" :alt="c.name" width="22" height="16" loading="lazy">
+                <span class="country-item-name">{{ c.name }}</span>
+                <span class="country-item-code">{{ c.code }}</span>
+              </button>
+              <div v-if="filteredCountries.length === 0" class="country-empty">{{ t.f_country_none }}</div>
+            </div>
+          </div>
+        </div>
         <input type="tel" id="f-phone" v-model.trim="form.phone" :placeholder="t.f_phone" required maxlength="20">
       </div>
       <select v-model="form.service" required>
@@ -1383,13 +1447,48 @@ onUnmounted(() => {
     color:var(--paper);padding:14px;font-size:0.88rem;
   }
   .phone-row{display:flex;gap:8px;}
-  .phone-row select{
-    background:var(--surface);border:1px solid var(--line);color:var(--paper);
-    padding:14px 8px;font-family:'Work Sans',sans-serif;font-size:0.9rem;
-    flex:0 0 128px;cursor:pointer;text-overflow:ellipsis;
-  }
   .phone-row input{flex:1;}
-  .phone-row select:focus{outline:none;border-color:var(--brass);}
+
+  /* Custom country-code dropdown: replaces the native <select> so we can
+     show real flag images (native <select> can't render images in its
+     options at all, and emoji flags rendered unreliably on Windows). */
+  .country-select{position:relative;flex:0 0 108px;}
+  .country-select-btn{
+    display:flex;align-items:center;gap:6px;width:100%;height:100%;
+    background:var(--surface);border:1px solid var(--line);color:var(--paper);
+    padding:14px 8px;font-family:'Work Sans',sans-serif;font-size:0.88rem;
+    cursor:pointer;
+  }
+  .country-select-btn:hover,.country-select.open .country-select-btn{border-color:var(--brass);}
+  .country-flag{border-radius:2px;display:block;flex-shrink:0;}
+  .country-chevron{margin-left:auto;color:var(--steel);flex-shrink:0;}
+  .country-select.open .country-chevron{transform:rotate(180deg);}
+  .country-dropdown{
+    position:absolute;top:calc(100% + 6px);left:0;z-index:50;
+    width:280px;max-width:80vw;background:var(--surface-2);
+    border:1px solid var(--line);box-shadow:0 12px 32px rgba(0,0,0,0.5);
+  }
+  html[dir="rtl"] .country-dropdown{left:auto;right:0;}
+  .country-search{
+    width:100%;padding:12px 14px;background:var(--surface);border:none;
+    border-bottom:1px solid var(--line);color:var(--paper);
+    font-family:'Work Sans',sans-serif;font-size:0.88rem;
+  }
+  .country-search:focus{outline:none;}
+  .country-list{max-height:260px;overflow-y:auto;}
+  .country-item{
+    display:flex;align-items:center;gap:10px;width:100%;
+    padding:9px 14px;background:none;border:none;color:var(--paper);
+    font-family:'Work Sans',sans-serif;font-size:0.86rem;text-align:left;
+    cursor:pointer;
+  }
+  html[dir="rtl"] .country-item{text-align:right;}
+  .country-item img{border-radius:2px;flex-shrink:0;}
+  .country-item:hover{background:rgba(176,141,87,0.12);}
+  .country-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .country-item-code{color:var(--steel);font-family:'IBM Plex Mono',monospace;font-size:0.8rem;flex-shrink:0;}
+  .country-empty{padding:16px 14px;color:var(--steel);font-size:0.86rem;text-align:center;}
+
   .info-line{display:flex;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--line);font-size:0.92rem;}
   .info-line span:first-child{color:var(--steel);}
   .info-line span:last-child{font-family:'IBM Plex Mono',monospace;color:var(--brass-bright);}

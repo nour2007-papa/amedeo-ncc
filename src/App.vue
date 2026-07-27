@@ -1,5 +1,45 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { firebaseConfig } from './firebase.js';
+
+/* =========================================================
+   Firebase — saves each booking request to Firestore so it
+   shows up in the admin dashboard (Admin.vue). This never
+   blocks or breaks the booking form: if Firebase isn't
+   configured yet, or the write fails, we just log it and the
+   WhatsApp handoff continues normally.
+   ========================================================= */
+let db = null;
+try {
+  const fbApp = initializeApp(firebaseConfig);
+  db = getFirestore(fbApp);
+} catch (e) {
+  console.warn('Firebase non configurato:', e);
+}
+
+async function saveBookingToFirestore(formSnapshot) {
+  if (!db) return;
+  try {
+    await addDoc(collection(db, 'bookings'), {
+      name: formSnapshot.name,
+      country: formSnapshot.country,
+      phone: formSnapshot.phone,
+      service: formSnapshot.service,
+      serviceDate: formSnapshot.serviceDate || null,
+      people: formSnapshot.people || null,
+      flight: formSnapshot.flight || null,
+      hotel: formSnapshot.hotel || null,
+      bags: formSnapshot.bags || null,
+      details: formSnapshot.details || null,
+      confirmed: false,
+      createdAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn('Impossibile salvare la prenotazione su Firestore:', e);
+  }
+}
 
 /* =========================================================
    i18n dictionary (IT / EN / AR) — ported 1:1 from the
@@ -112,6 +152,7 @@ const dict = {
     "f_flight": "Numero di volo (se transfer aeroporto)",
     "f_hotel": "Hotel / indirizzo di destinazione",
     "f_bags": "Numero di valigie",
+    "f_service_date": "Data del servizio",
     "f_gdpr": "Accetto il trattamento dei dati personali ai sensi del GDPR.",
     "f_submit": "Invia richiesta",
     "i_phone": "Telefono",
@@ -251,6 +292,7 @@ const dict = {
     "f_flight": "Flight number (if airport transfer)",
     "f_hotel": "Hotel / destination address",
     "f_bags": "Number of bags",
+    "f_service_date": "Service date",
     "f_gdpr": "I accept the processing of personal data under GDPR.",
     "f_submit": "Send request",
     "i_phone": "Phone",
@@ -390,6 +432,7 @@ const dict = {
     "f_flight": "رقم الرحلة (لو نقل من المطار)",
     "f_hotel": "الفندق / عنوان الوجهة",
     "f_bags": "عدد الحقائب",
+    "f_service_date": "تاريخ الرحلة",
     "f_gdpr": "أوافق على معالجة البيانات الشخصية وفقًا لسياسة الخصوصية GDPR.",
     "f_submit": "إرسال الطلب",
     "i_phone": "الهاتف",
@@ -726,10 +769,10 @@ const search = reactive({ from: '', to: '', date: '', serviceIndex: 0 });
 function submitSearch() {
   form.service = serviceFormValues[search.serviceIndex] || '';
   if (search.to) form.hotel = search.to;
+  if (search.date) form.serviceDate = search.date;
 
   const parts = [];
   if (search.from) parts.push(`${t.value.note_from_prefix}: ${search.from}`);
-  if (search.date) parts.push(`${t.value.note_date_prefix}: ${search.date}`);
   if (parts.length) form.details = parts.join(' | ');
 
   scrollToContact();
@@ -747,6 +790,7 @@ const form = reactive({
   country: '+39',
   phone: '',
   service: '',
+  serviceDate: '',
   people: '',
   flight: '',
   hotel: '',
@@ -847,10 +891,10 @@ const WHATSAPP_NUMBER = '393520003122';
 function sendBookingToWhatsApp() {
   // Honeypot tripped: a bot filled the hidden field. Reset the form and
   // stop here — no WhatsApp message, no visible error (don't tip the bot
-  // off that it was detected).
+  // off that it was detected), and nothing gets saved to Firestore.
   if (form.website) {
     Object.assign(form, {
-      name: '', country: '+39', phone: '', service: '', people: '',
+      name: '', country: '+39', phone: '', service: '', serviceDate: '', people: '',
       flight: '', hotel: '', bags: '', details: '', gdpr: false,
       lastAutoNote: null, website: '',
     });
@@ -864,6 +908,7 @@ function sendBookingToWhatsApp() {
     `Telefono: ${form.country} ${form.phone}`,
     `Servizio: ${form.service}`,
   ];
+  if (form.serviceDate) lines.push(`Data: ${form.serviceDate}`);
   if (form.people) lines.push(`Numero di persone: ${form.people}`);
   if (form.flight) lines.push(`Numero di volo: ${form.flight}`);
   if (form.hotel) lines.push(`Hotel/destinazione: ${form.hotel}`);
@@ -872,10 +917,17 @@ function sendBookingToWhatsApp() {
 
   const text = encodeURIComponent(lines.join('\n'));
   showSuccess.value = true;
+
+  // Save to Firestore in the background (for the admin dashboard) without
+  // blocking or delaying the WhatsApp handoff below — if it fails (e.g. no
+  // internet to Firebase, or Firebase not yet configured), the booking
+  // request still reaches WhatsApp normally.
+  saveBookingToFirestore({ ...form });
+
   window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank', 'noopener,noreferrer');
 
   Object.assign(form, {
-    name: '', country: '+39', phone: '', service: '', people: '',
+    name: '', country: '+39', phone: '', service: '', serviceDate: '', people: '',
     flight: '', hotel: '', bags: '', details: '', gdpr: false,
     lastAutoNote: null, website: '',
   });
@@ -1141,6 +1193,7 @@ onUnmounted(() => {
       <input type="number" v-model="form.people" min="1" max="20" :placeholder="t.f_people">
       <input type="text" v-model.trim="form.flight" :placeholder="t.f_flight" maxlength="30">
       <input type="text" id="f-hotel" v-model.trim="form.hotel" :placeholder="t.f_hotel" maxlength="100">
+      <input type="date" id="f-service-date" v-model="form.serviceDate" :aria-label="t.f_service_date">
       <input type="number" v-model="form.bags" min="0" max="30" :placeholder="t.f_bags">
       <textarea v-model="form.details" :placeholder="t.f_details" maxlength="500"></textarea>
       <label class="gdpr-box">

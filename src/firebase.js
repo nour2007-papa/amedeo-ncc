@@ -2,8 +2,9 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAFxYOBpqkCTHDfDas9yvHDDQ4NRnRFUkU",
+// أضفنا export قبل المتغير
+export const firebaseConfig = {
+  apiKey: "AIzaSyAFXYOBpqkCTHDfDas9yvHDDQ4NRnRFUkU",
   authDomain: "amedeo-ncc.firebaseapp.com",
   projectId: "amedeo-ncc",
   storageBucket: "amedeo-ncc.firebasestorage.app",
@@ -12,9 +13,7 @@ const firebaseConfig = {
   measurementId: "G-4QG35RF7HG"
 };
 
-// تهيئة Firebase
-const app = initializeApp(firebaseConfig);
-
-// تصدير الأدوات لاستخدامها في باقي المشروع
+// تهيئة Firebase وتصدير الخدمة
+export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);

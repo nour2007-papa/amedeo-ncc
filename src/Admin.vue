@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { initializeApp } from 'firebase/app';
 import {
-  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+  getAuth, signInWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
   getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc,
@@ -20,12 +20,15 @@ const email = ref('');
 const password = ref('');
 const loginError = ref('');
 const loggingIn = ref(false);
-
 let unsubAuth = null;
+
 onMounted(() => {
   unsubAuth = onAuthStateChanged(auth, (u) => {
     user.value = u;
     authLoading.value = false;
+  });
+  getRedirectResult(auth).catch((e) => {
+    loginError.value = 'خطأ في تسجيل الدخول بجوجل: ' + e.message;
   });
 });
 onUnmounted(() => unsubAuth && unsubAuth());
@@ -38,6 +41,18 @@ async function login() {
   } catch (e) {
     loginError.value = 'Email o password non corretti.';
   } finally {
+    loggingIn.value = false;
+  }
+}
+
+async function loginWithGoogle() {
+  loginError.value = '';
+  loggingIn.value = true;
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithRedirect(auth, provider);
+  } catch (e) {
+    loginError.value = 'خطأ في تسجيل الدخول بجوجل: ' + e.message;
     loggingIn.value = false;
   }
 }
@@ -101,62 +116,74 @@ async function toggleConfirm(b) {
 </script>
 
 <template>
-<div class="admin">
-  <div v-if="authLoading" class="admin-center">Caricamento...</div>
+  <div class="admin">
+    <div v-if="authLoading" class="admin-center">Caricamento...</div>
 
-  <div v-else-if="!user" class="admin-center">
-    <form class="admin-login-box" @submit.prevent="login">
-      <h1>Amedeo NCC</h1>
-      <p class="admin-subtitle">Gestione prenotazioni</p>
-      <input type="email" v-model="email" placeholder="Email" required autocomplete="username">
-      <input type="password" v-model="password" placeholder="Password" required autocomplete="current-password">
-      <p v-if="loginError" class="admin-error">{{ loginError }}</p>
-      <button type="submit" :disabled="loggingIn">{{ loggingIn ? 'Accesso in corso...' : 'Accedi' }}</button>
-    </form>
-  </div>
+    <div v-else-if="!user" class="admin-center">
+      <form class="admin-login-box" @submit.prevent="login">
+        <h1>Amedeo NCC</h1>
+        <p class="admin-subtitle">Gestione prenotazioni</p>
 
-  <div v-else class="admin-dashboard">
-    <header class="admin-header">
-      <h1>Prenotazioni — Amedeo NCC</h1>
-      <button class="admin-logout" @click="logout">Esci</button>
-    </header>
+        <input type="email" v-model="email" placeholder="Email" required autocomplete="username">
+        <input type="password" v-model="password" placeholder="Password" required autocomplete="current-password">
 
-    <div v-if="bookingsLoading" class="admin-center">Caricamento prenotazioni...</div>
-    <div v-else-if="bookings.length === 0" class="admin-center">Nessuna prenotazione ancora.</div>
+        <p v-if="loginError" class="admin-error">{{ loginError }}</p>
 
-    <div v-else class="admin-days">
-      <section v-for="key in sortedDayKeys" :key="key" class="admin-day">
-        <h2>{{ formatDay(key) }}</h2>
-        <div class="admin-cards">
-          <article
-            v-for="b in groupedByDay[key]"
-            :key="b.id"
-            class="admin-card"
-            :class="{ 'is-confirmed': b.confirmed }"
-          >
-            <div class="admin-card-top">
-              <b>{{ b.name || '—' }}</b>
-              <span class="admin-badge" :class="{ on: b.confirmed }">
-                {{ b.confirmed ? 'Confermata' : 'Da confermare' }}
-              </span>
-            </div>
-            <p class="admin-line"><span>Servizio</span>{{ b.service || '—' }}</p>
-            <p class="admin-line"><span>Telefono</span>{{ b.country }} {{ b.phone }}</p>
-            <p v-if="b.hotel" class="admin-line"><span>Destinazione</span>{{ b.hotel }}</p>
-            <p v-if="b.flight" class="admin-line"><span>Volo</span>{{ b.flight }}</p>
-            <p v-if="b.people" class="admin-line"><span>Persone</span>{{ b.people }}</p>
-            <p v-if="b.bags" class="admin-line"><span>Valigie</span>{{ b.bags }}</p>
-            <p v-if="b.details" class="admin-line"><span>Note</span>{{ b.details }}</p>
-            <p class="admin-meta">Richiesta ricevuta: {{ formatCreatedAt(b.createdAt) }}</p>
-            <button class="admin-toggle" @click="toggleConfirm(b)">
-              {{ b.confirmed ? 'Segna come non confermata' : 'Conferma prenotazione' }}
-            </button>
-          </article>
-        </div>
-      </section>
+        <button type="submit" :disabled="loggingIn">{{ loggingIn ? 'Accesso in corso...' : 'Accedi' }}</button>
+
+        <div class="admin-divider"><span>oppure</span></div>
+
+        <button type="button" @click="loginWithGoogle" :disabled="loggingIn" class="admin-google-btn">
+          Accedi con Google
+        </button>
+      </form>
+    </div>
+
+    <div v-else class="admin-dashboard">
+      <header class="admin-header">
+        <h1>Prenotazioni — Amedeo NCC</h1>
+        <button class="admin-logout" @click="logout">Esci</button>
+      </header>
+
+      <div v-if="bookingsLoading" class="admin-center">Caricamento prenotazioni...</div>
+      <div v-else-if="bookings.length === 0" class="admin-center">Nessuna prenotazione ancora.</div>
+
+      <div v-else class="admin-days">
+        <section v-for="key in sortedDayKeys" :key="key" class="admin-day">
+          <h2>{{ formatDay(key) }}</h2>
+          <div class="admin-cards">
+            <article
+              v-for="b in groupedByDay[key]"
+              :key="b.id"
+              class="admin-card"
+              :class="{ 'is-confirmed': b.confirmed }"
+            >
+              <div class="admin-card-top">
+                <b>{{ b.name || '—' }}</b>
+                <span class="admin-badge" :class="{ on: b.confirmed }">
+                  {{ b.confirmed ? 'Confermata' : 'Da confermare' }}
+                </span>
+              </div>
+
+              <p class="admin-line"><span>Servizio</span>{{ b.service || '—' }}</p>
+              <p class="admin-line"><span>Telefono</span>{{ b.country }} {{ b.phone }}</p>
+              <p v-if="b.hotel" class="admin-line"><span>Destinazione</span>{{ b.hotel }}</p>
+              <p v-if="b.flight" class="admin-line"><span>Volo</span>{{ b.flight }}</p>
+              <p v-if="b.people" class="admin-line"><span>Persone</span>{{ b.people }}</p>
+              <p v-if="b.bags" class="admin-line"><span>Valigie</span>{{ b.bags }}</p>
+              <p v-if="b.details" class="admin-line"><span>Note</span>{{ b.details }}</p>
+
+              <p class="admin-meta">Richiesta ricevuta: {{ formatCreatedAt(b.createdAt) }}</p>
+
+              <button class="admin-toggle" @click="toggleConfirm(b)">
+                {{ b.confirmed ? 'Segna come non confermata' : 'Conferma prenotazione' }}
+              </button>
+            </article>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
-</div>
 </template>
 
 <style>
@@ -193,6 +220,23 @@ html,body{background:var(--ink);}
 .admin-login-box button:disabled{opacity:0.6; cursor:default;}
 .admin-error{color:#e5877e; font-size:0.82rem;}
 
+.admin-divider{
+  display:flex; align-items:center; text-align:center; color:var(--steel);
+  font-size:0.78rem; margin:6px 0;
+}
+.admin-divider::before, .admin-divider::after{
+  content:''; flex:1; border-bottom:1px solid var(--line);
+}
+.admin-divider span{padding:0 10px;}
+
+.admin-google-btn{
+  background:none; border:1px solid var(--brass); color:var(--brass-bright);
+  padding:12px; font-weight:600; text-transform:uppercase; font-size:0.8rem;
+  cursor:pointer; margin-top:0;
+}
+.admin-google-btn:hover{background:rgba(176,141,87,0.1);}
+.admin-google-btn:disabled{opacity:0.6; cursor:default;}
+
 .admin-header{
   display:flex; align-items:center; justify-content:space-between;
   padding:20px 24px; border-bottom:1px solid var(--line); position:sticky; top:0;
@@ -204,7 +248,6 @@ html,body{background:var(--ink);}
   padding:8px 16px; font-size:0.8rem; cursor:pointer;
 }
 .admin-logout:hover{border-color:var(--brass); color:var(--brass-bright);}
-
 .admin-days{max-width:900px; margin:0 auto; padding:24px;}
 .admin-day{margin-bottom:36px;}
 .admin-day h2{

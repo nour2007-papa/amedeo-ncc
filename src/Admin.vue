@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { initializeApp } from 'firebase/app';
 import {
-  getAuth, signInWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut,
+  getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
   getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc,
@@ -27,9 +27,6 @@ onMounted(() => {
     user.value = u;
     authLoading.value = false;
   });
-  getRedirectResult(auth).catch((e) => {
-    loginError.value = 'خطأ في تسجيل الدخول بجوجل: ' + e.message;
-  });
 });
 onUnmounted(() => unsubAuth && unsubAuth());
 
@@ -50,9 +47,16 @@ async function loginWithGoogle() {
   loggingIn.value = true;
   try {
     const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   } catch (e) {
-    loginError.value = 'خطأ في تسجيل الدخول بجوجل: ' + e.message;
+    if (e.code === 'auth/popup-closed-by-user') {
+      loginError.value = '';
+    } else if (e.code === 'auth/unauthorized-domain') {
+      loginError.value = 'هذا الدومين غير مصرح له في Firebase (أضفه في Authentication > Settings > Authorized domains).';
+    } else {
+      loginError.value = 'خطأ في تسجيل الدخول بجوجل: ' + e.message;
+    }
+  } finally {
     loggingIn.value = false;
   }
 }

@@ -5,7 +5,7 @@ import {
   getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
-  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc,
+  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 
@@ -117,6 +117,15 @@ async function toggleConfirm(b) {
     alert('Errore: impossibile aggiornare lo stato. Riprova.');
   }
 }
+
+async function deleteBooking(b) {
+  if (!confirm(`Eliminare la richiesta di "${b.name || 'cliente'}"? L'azione non è reversibile.`)) return;
+  try {
+    await deleteDoc(doc(db, 'bookings', b.id));
+  } catch (e) {
+    alert('Errore: impossibile eliminare la richiesta. Riprova.');
+  }
+}
 </script>
 
 <template>
@@ -179,9 +188,14 @@ async function toggleConfirm(b) {
 
               <p class="admin-meta">Richiesta ricevuta: {{ formatCreatedAt(b.createdAt) }}</p>
 
-              <button class="admin-toggle" @click="toggleConfirm(b)">
-                {{ b.confirmed ? 'Segna come non confermata' : 'Conferma prenotazione' }}
-              </button>
+              <div class="admin-actions">
+                <button class="admin-toggle" @click="toggleConfirm(b)">
+                  {{ b.confirmed ? 'Segna come non confermata' : 'Conferma prenotazione' }}
+                </button>
+                <button class="admin-delete" @click="deleteBooking(b)">
+                  Elimina
+                </button>
+              </div>
             </article>
           </div>
         </section>
@@ -275,9 +289,16 @@ html,body{background:var(--ink);}
 .admin-line span{color:var(--steel); display:inline-block; min-width:88px;}
 .admin-meta{font-size:0.72rem; color:var(--steel); margin-top:10px;}
 .admin-toggle{
-  margin-top:14px; width:100%; background:none; border:1px solid var(--line);
+  width:100%; background:none; border:1px solid var(--line);
   color:var(--brass-bright); padding:10px; font-size:0.78rem; text-transform:uppercase;
   letter-spacing:0.03em; cursor:pointer;
 }
 .admin-toggle:hover{border-color:var(--brass); background:rgba(176,141,87,0.08);}
+.admin-actions{margin-top:14px; display:flex; gap:8px;}
+.admin-actions .admin-toggle{margin-top:0; flex:1;}
+.admin-delete{
+  background:none; border:1px solid #6b3030; color:#e08a8a; padding:10px 14px;
+  font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; cursor:pointer;
+}
+.admin-delete:hover{border-color:#c94f4f; background:rgba(201,79,79,0.1);}
 </style>

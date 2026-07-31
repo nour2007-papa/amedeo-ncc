@@ -120,7 +120,7 @@ async function toggleConfirm(b) {
   // Open the tab synchronously, right when the click happens — opening it
   // after the `await` below breaks the direct link to the user's click and
   // browsers silently block it as a popup.
-  const waWindow = willBeConfirmed ? window.open('', '_blank', 'noopener,noreferrer') : null;
+  const waWindow = willBeConfirmed ? window.open('', '_blank') : null;
 
   try {
     await updateDoc(doc(db, 'bookings', b.id), { confirmed: willBeConfirmed });

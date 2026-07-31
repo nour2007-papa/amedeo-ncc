@@ -116,16 +116,24 @@ function cleanPhoneForWa(b) {
 
 async function toggleConfirm(b) {
   const willBeConfirmed = !b.confirmed;
+
+  // Open the tab synchronously, right when the click happens — opening it
+  // after the `await` below breaks the direct link to the user's click and
+  // browsers silently block it as a popup.
+  const waWindow = willBeConfirmed ? window.open('', '_blank', 'noopener,noreferrer') : null;
+
   try {
     await updateDoc(doc(db, 'bookings', b.id), { confirmed: willBeConfirmed });
   } catch (e) {
     alert('Errore: impossibile aggiornare lo stato. Riprova.');
+    if (waWindow) waWindow.close();
     return;
   }
   if (willBeConfirmed) {
     const phone = cleanPhoneForWa(b);
     if (!phone) {
       alert('Numero di telefono mancante: impossibile aprire WhatsApp per la conferma.');
+      if (waWindow) waWindow.close();
       return;
     }
     const lines = [
@@ -137,7 +145,12 @@ async function toggleConfirm(b) {
     if (b.hotel) lines.push(`Destinazione: ${b.hotel}`);
     lines.push(`Grazie per aver scelto Amedeo NCC!`);
     const text = encodeURIComponent(lines.join('\n'));
-    window.open(`https://wa.me/${phone}?text=${text}`, '_blank', 'noopener,noreferrer');
+    const url = `https://wa.me/${phone}?text=${text}`;
+    if (waWindow) {
+      waWindow.location.href = url;
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
   }
 }
 

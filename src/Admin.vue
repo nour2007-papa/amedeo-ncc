@@ -110,11 +110,34 @@ function formatCreatedAt(ts) {
   return ts.toDate().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function cleanPhoneForWa(b) {
+  return `${b.country || ''}${b.phone || ''}`.replace(/[^\d]/g, '');
+}
+
 async function toggleConfirm(b) {
+  const willBeConfirmed = !b.confirmed;
   try {
-    await updateDoc(doc(db, 'bookings', b.id), { confirmed: !b.confirmed });
+    await updateDoc(doc(db, 'bookings', b.id), { confirmed: willBeConfirmed });
   } catch (e) {
     alert('Errore: impossibile aggiornare lo stato. Riprova.');
+    return;
+  }
+  if (willBeConfirmed) {
+    const phone = cleanPhoneForWa(b);
+    if (!phone) {
+      alert('Numero di telefono mancante: impossibile aprire WhatsApp per la conferma.');
+      return;
+    }
+    const lines = [
+      `✅ Prenotazione confermata — Amedeo NCC`,
+      `Ciao ${b.name || ''}, la tua richiesta è stata confermata.`,
+    ];
+    if (b.service) lines.push(`Servizio: ${b.service}`);
+    if (b.serviceDate) lines.push(`Data: ${b.serviceDate}`);
+    if (b.hotel) lines.push(`Destinazione: ${b.hotel}`);
+    lines.push(`Grazie per aver scelto Amedeo NCC!`);
+    const text = encodeURIComponent(lines.join('\n'));
+    window.open(`https://wa.me/${phone}?text=${text}`, '_blank', 'noopener,noreferrer');
   }
 }
 

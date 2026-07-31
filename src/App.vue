@@ -925,7 +925,7 @@ function sendBookingToWhatsApp() {
   // request still reaches WhatsApp normally.
   saveBookingToFirestore({ ...form });
 
-  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank', 'noopener,noreferrer');
+  window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
 
   Object.assign(form, {
     name: '', country: '+39', phone: '', service: '', serviceDate: '', people: '',

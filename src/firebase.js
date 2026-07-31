@@ -4,7 +4,7 @@ import { getAuth } from "firebase/auth";
 
 // أضفنا export قبل المتغير
 export const firebaseConfig = {
-  apiKey: "AIzaSyAFXYOBpqkCTHDfDas9yvHDDQ4NRnRFUkU",
+  apiKey: "AIzaSyAcmqPNItClwWAVaz-0-fDzVOAX1CGicz4",
   authDomain: "amedeo-ncc.firebaseapp.com",
   projectId: "amedeo-ncc",
   storageBucket: "amedeo-ncc.firebasestorage.app",

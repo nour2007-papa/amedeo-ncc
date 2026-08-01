@@ -25,10 +25,6 @@ const loggingIn = ref(false);
 const accessDenied = ref(false);
 let unsubAuth = null;
 
-// على الموبايل الـ popup غالبًا بيتحظر من المتصفح (خصوصًا Brave)
-// فبنستخدم signInWithRedirect بدل signInWithPopup في الحالة دي
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
 onMounted(() => {
   unsubAuth = onAuthStateChanged(auth, (u) => {
     if (u && u.email !== ADMIN_EMAIL) {
@@ -42,15 +38,15 @@ onMounted(() => {
     user.value = u;
     authLoading.value = false;
   });
-
-  // بعد رجوع المستخدم من صفحة تسجيل الدخول (لو استخدمنا redirect)
   getRedirectResult(auth).catch((e) => {
-    if (e.code && e.code !== 'auth/no-auth-event') {
-      loginError.value = 'خطأ في تسجيل الدخول بجوجل: ' + e.message;
-    }
+    loginError.value = 'Errore accesso Google: ' + e.message;
   });
 });
 onUnmounted(() => unsubAuth && unsubAuth());
+
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
 
 async function login() {
   loginError.value = '';
@@ -69,12 +65,18 @@ async function loginWithGoogle() {
   loginError.value = '';
   accessDenied.value = false;
   loggingIn.value = true;
-  try {
-    const provider = new GoogleAuthProvider();
-    if (isMobile) {
+  const provider = new GoogleAuthProvider();
+  if (isMobileDevice()) {
+    // Popups are unreliable on mobile browsers — use a full-page redirect instead.
+    try {
       await signInWithRedirect(auth, provider);
-      return; // الصفحة هتعمل reload بعد الرجوع من جوجل
+    } catch (e) {
+      loginError.value = 'Errore accesso Google: ' + e.message;
+      loggingIn.value = false;
     }
+    return;
+  }
+  try {
     await signInWithPopup(auth, provider);
   } catch (e) {
     if (e.code === 'auth/popup-closed-by-user') {
@@ -220,11 +222,14 @@ function cleanPhoneForWa(b) {
 
 async function toggleConfirm(b) {
   const willBeConfirmed = !b.confirmed;
+  const onMobile = isMobileDevice();
 
-  // Open the tab synchronously, right when the click happens — opening it
-  // after the `await` below breaks the direct link to the user's click and
-  // browsers silently block it as a popup.
-  const waWindow = willBeConfirmed ? window.open('', '_blank') : null;
+  // Desktop: open the tab synchronously, right when the click happens —
+  // opening it after the `await` below breaks the direct link to the
+  // user's click and browsers silently block it as a popup.
+  // Mobile: skip this — mobile browsers often don't keep a blank tab
+  // alive reliably, so we navigate the current tab instead (below).
+  const waWindow = (willBeConfirmed && !onMobile) ? window.open('', '_blank') : null;
 
   try {
     await updateDoc(doc(db, 'bookings', b.id), { confirmed: willBeConfirmed });
@@ -250,7 +255,9 @@ async function toggleConfirm(b) {
     lines.push(`Grazie per aver scelto Amedeo NCC!`);
     const text = encodeURIComponent(lines.join('\n'));
     const url = `https://wa.me/${phone}?text=${text}`;
-    if (waWindow) {
+    if (onMobile) {
+      window.location.href = url;
+    } else if (waWindow) {
       waWindow.location.href = url;
     } else {
       window.open(url, '_blank', 'noopener,noreferrer');

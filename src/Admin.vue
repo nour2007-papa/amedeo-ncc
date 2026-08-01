@@ -2,7 +2,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { initializeApp } from 'firebase/app';
 import {
-  getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut,
+  getAuth, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult,
+  GoogleAuthProvider, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
   getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc,
@@ -24,6 +25,10 @@ const loggingIn = ref(false);
 const accessDenied = ref(false);
 let unsubAuth = null;
 
+// على الموبايل الـ popup غالبًا بيتحظر من المتصفح (خصوصًا Brave)
+// فبنستخدم signInWithRedirect بدل signInWithPopup في الحالة دي
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 onMounted(() => {
   unsubAuth = onAuthStateChanged(auth, (u) => {
     if (u && u.email !== ADMIN_EMAIL) {
@@ -36,6 +41,13 @@ onMounted(() => {
     accessDenied.value = false;
     user.value = u;
     authLoading.value = false;
+  });
+
+  // بعد رجوع المستخدم من صفحة تسجيل الدخول (لو استخدمنا redirect)
+  getRedirectResult(auth).catch((e) => {
+    if (e.code && e.code !== 'auth/no-auth-event') {
+      loginError.value = 'خطأ في تسجيل الدخول بجوجل: ' + e.message;
+    }
   });
 });
 onUnmounted(() => unsubAuth && unsubAuth());
@@ -59,6 +71,10 @@ async function loginWithGoogle() {
   loggingIn.value = true;
   try {
     const provider = new GoogleAuthProvider();
+    if (isMobile) {
+      await signInWithRedirect(auth, provider);
+      return; // الصفحة هتعمل reload بعد الرجوع من جوجل
+    }
     await signInWithPopup(auth, provider);
   } catch (e) {
     if (e.code === 'auth/popup-closed-by-user') {

@@ -81,10 +81,69 @@ onMounted(() => {
 });
 onUnmounted(() => unsubBookings && unsubBookings());
 
+/* ---------- Grouping & filtering (day / week / month) ---------- */
+const viewMode = ref('day'); // 'day' | 'week' | 'month'
+const quickFilter = ref('all'); // 'all' | 'today' | 'week' | 'month'
+
+function toDateOnly(key) {
+  if (!key || key === '__nodate__') return null;
+  const d = new Date(`${key}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function startOfWeek(d) {
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  const m = new Date(d);
+  m.setDate(d.getDate() + diff);
+  m.setHours(0, 0, 0, 0);
+  return m;
+}
+function endOfWeek(d) {
+  const s = startOfWeek(d);
+  const e = new Date(s);
+  e.setDate(s.getDate() + 6);
+  e.setHours(23, 59, 59, 999);
+  return e;
+}
+function isoWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+function weekKeyOf(d) {
+  const s = startOfWeek(d);
+  return `${s.getFullYear()}-W${String(isoWeekNumber(s)).padStart(2, '0')}`;
+}
+
+const filteredBookings = computed(() => {
+  if (quickFilter.value === 'all') return bookings.value;
+  const now = new Date();
+  return bookings.value.filter((b) => {
+    const d = toDateOnly(b.serviceDate);
+    if (!d) return false;
+    if (quickFilter.value === 'today') return d.toDateString() === now.toDateString();
+    if (quickFilter.value === 'week') return d >= startOfWeek(now) && d <= endOfWeek(now);
+    if (quickFilter.value === 'month') {
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }
+    return true;
+  });
+});
+
 const groupedByDay = computed(() => {
   const groups = {};
-  for (const b of bookings.value) {
-    const key = b.serviceDate || '__nodate__';
+  for (const b of filteredBookings.value) {
+    let key;
+    if (viewMode.value === 'day') {
+      key = b.serviceDate || '__nodate__';
+    } else if (viewMode.value === 'week') {
+      const d = toDateOnly(b.serviceDate);
+      key = d ? weekKeyOf(d) : '__nodate__';
+    } else {
+      key = b.serviceDate ? b.serviceDate.slice(0, 7) : '__nodate__';
+    }
     if (!groups[key]) groups[key] = [];
     groups[key].push(b);
   }
@@ -100,6 +159,23 @@ const sortedDayKeys = computed(() => {
 
 function formatDay(key) {
   if (key === '__nodate__') return 'Senza data indicata';
+  if (viewMode.value === 'week') {
+    const [y, w] = key.split('-W');
+    const jan4 = new Date(Date.UTC(Number(y), 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const week1Monday = new Date(jan4);
+    week1Monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
+    const start = new Date(week1Monday);
+    start.setUTCDate(week1Monday.getUTCDate() + (Number(w) - 1) * 7);
+    const end = new Date(start);
+    end.setUTCDate(start.getUTCDate() + 6);
+    const fmt = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+    return `Settimana ${w} · ${fmt(start)} – ${fmt(end)} ${y}`;
+  }
+  if (viewMode.value === 'month') {
+    const d = new Date(`${key}-01T00:00:00`);
+    return d.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  }
   const d = new Date(`${key}T00:00:00`);
   if (Number.isNaN(d.getTime())) return key;
   return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -194,8 +270,25 @@ async function deleteBooking(b) {
         <button class="admin-logout" @click="logout">Esci</button>
       </header>
 
+      <div v-if="bookings.length > 0" class="admin-filters">
+        <div class="admin-filter-group">
+          <span class="admin-filter-label">Vista:</span>
+          <button :class="{ active: viewMode === 'day' }" @click="viewMode = 'day'">Giorno</button>
+          <button :class="{ active: viewMode === 'week' }" @click="viewMode = 'week'">Settimana</button>
+          <button :class="{ active: viewMode === 'month' }" @click="viewMode = 'month'">Mese</button>
+        </div>
+        <div class="admin-filter-group">
+          <span class="admin-filter-label">Mostra:</span>
+          <button :class="{ active: quickFilter === 'all' }" @click="quickFilter = 'all'">Tutte</button>
+          <button :class="{ active: quickFilter === 'today' }" @click="quickFilter = 'today'">Oggi</button>
+          <button :class="{ active: quickFilter === 'week' }" @click="quickFilter = 'week'">Questa settimana</button>
+          <button :class="{ active: quickFilter === 'month' }" @click="quickFilter = 'month'">Questo mese</button>
+        </div>
+      </div>
+
       <div v-if="bookingsLoading" class="admin-center">Caricamento prenotazioni...</div>
       <div v-else-if="bookings.length === 0" class="admin-center">Nessuna prenotazione ancora.</div>
+      <div v-else-if="sortedDayKeys.length === 0" class="admin-center">Nessuna prenotazione in questo periodo.</div>
 
       <div v-else class="admin-days">
         <section v-for="key in sortedDayKeys" :key="key" class="admin-day">
@@ -303,6 +396,20 @@ html,body{background:var(--ink);}
 }
 .admin-logout:hover{border-color:var(--brass); color:var(--brass-bright);}
 .admin-days{max-width:900px; margin:0 auto; padding:24px;}
+.admin-filters{
+  max-width:900px; margin:0 auto; padding:16px 24px 0;
+  display:flex; flex-direction:column; gap:10px;
+}
+.admin-filter-group{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.admin-filter-label{ color:var(--steel); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; margin-right:2px; }
+.admin-filter-group button{
+  background:none; border:1px solid var(--line); color:var(--steel);
+  padding:6px 12px; font-size:0.76rem; cursor:pointer; letter-spacing:0.02em;
+}
+.admin-filter-group button:hover{ border-color:var(--brass); color:var(--brass-bright); }
+.admin-filter-group button.active{
+  border-color:var(--brass); color:var(--ink); background:var(--brass-bright);
+}
 .admin-day{margin-bottom:36px;}
 .admin-day h2{
   font-family:'IBM Plex Mono',monospace; text-transform:uppercase; font-size:0.85rem;

@@ -2,8 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { initializeApp } from 'firebase/app';
 import {
-  getAuth, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult,
-  GoogleAuthProvider, onAuthStateChanged, signOut,
+  getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
   getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc,
@@ -38,9 +37,6 @@ onMounted(() => {
     user.value = u;
     authLoading.value = false;
   });
-  getRedirectResult(auth).catch((e) => {
-    loginError.value = 'Errore accesso Google: ' + e.message;
-  });
 });
 onUnmounted(() => unsubAuth && unsubAuth());
 
@@ -61,33 +57,28 @@ async function login() {
   }
 }
 
-async function loginWithGoogle() {
+const resetSending = ref(false);
+const resetMessage = ref('');
+async function resetPassword() {
   loginError.value = '';
-  accessDenied.value = false;
-  loggingIn.value = true;
-  const provider = new GoogleAuthProvider();
-  if (isMobileDevice()) {
-    // Popups are unreliable on mobile browsers — use a full-page redirect instead.
-    try {
-      await signInWithRedirect(auth, provider);
-    } catch (e) {
-      loginError.value = 'Errore accesso Google: ' + e.message;
-      loggingIn.value = false;
-    }
+  resetMessage.value = '';
+  const target = email.value.trim();
+  if (!target) {
+    loginError.value = 'Inserisci prima la tua email qui sopra, poi premi "Password dimenticata?".';
     return;
   }
+  resetSending.value = true;
   try {
-    await signInWithPopup(auth, provider);
+    await sendPasswordResetEmail(auth, target);
+    resetMessage.value = `Email inviata a ${target}. Controlla la posta (anche lo spam) per reimpostare la password.`;
   } catch (e) {
-    if (e.code === 'auth/popup-closed-by-user') {
-      loginError.value = '';
-    } else if (e.code === 'auth/popup-blocked') {
-      loginError.value = 'المتصفح بيمنع النافذة المنبثقة. اسمح بالـ popups لهذا الموقع.';
+    if (e.code === 'auth/user-not-found') {
+      loginError.value = 'Nessun account trovato con questa email.';
     } else {
-      loginError.value = 'خطأ في تسجيل الدخول بجوجل: ' + e.message;
+      loginError.value = 'Errore durante l\'invio: ' + e.message;
     }
   } finally {
-    loggingIn.value = false;
+    resetSending.value = false;
   }
 }
 
@@ -291,13 +282,17 @@ async function deleteBooking(b) {
         <p v-if="accessDenied" class="admin-error">
           Questo account non è autorizzato ad accedere a questo pannello.
         </p>
+        <p v-if="resetMessage" class="admin-success">{{ resetMessage }}</p>
 
         <button type="submit" :disabled="loggingIn">{{ loggingIn ? 'Accesso in corso...' : 'Accedi' }}</button>
 
-        <div class="admin-divider"><span>oppure</span></div>
-
-        <button type="button" @click="loginWithGoogle" :disabled="loggingIn" class="admin-google-btn">
-          Accedi con Google
+        <button
+          type="button"
+          class="admin-forgot"
+          :disabled="resetSending"
+          @click="resetPassword"
+        >
+          {{ resetSending ? 'Invio in corso...' : 'Password dimenticata?' }}
         </button>
       </form>
     </div>
@@ -404,23 +399,13 @@ html,body{background:var(--ink);}
 }
 .admin-login-box button:disabled{opacity:0.6; cursor:default;}
 .admin-error{color:#e5877e; font-size:0.82rem;}
-
-.admin-divider{
-  display:flex; align-items:center; text-align:center; color:var(--steel);
-  font-size:0.78rem; margin:6px 0;
+.admin-success{color:#8fbf8a; font-size:0.82rem;}
+.admin-forgot{
+  background:none; border:none; color:var(--steel); font-size:0.78rem;
+  text-decoration:underline; cursor:pointer; padding:2px; margin-top:-4px;
 }
-.admin-divider::before, .admin-divider::after{
-  content:''; flex:1; border-bottom:1px solid var(--line);
-}
-.admin-divider span{padding:0 10px;}
-
-.admin-google-btn{
-  background:none; border:1px solid var(--brass); color:var(--brass-bright);
-  padding:12px; font-weight:600; text-transform:uppercase; font-size:0.8rem;
-  cursor:pointer; margin-top:0;
-}
-.admin-google-btn:hover{background:rgba(176,141,87,0.1);}
-.admin-google-btn:disabled{opacity:0.6; cursor:default;}
+.admin-forgot:hover{color:var(--brass-bright);}
+.admin-forgot:disabled{opacity:0.6; cursor:default;}
 
 .admin-header{
   display:flex; align-items:center; justify-content:space-between;

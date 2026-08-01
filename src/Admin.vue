@@ -14,16 +14,26 @@ const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
 /* ---------- Login ---------- */
+const ADMIN_EMAIL = 'nour2007papa@gmail.com';
 const user = ref(null);
 const authLoading = ref(true);
 const email = ref('');
 const password = ref('');
 const loginError = ref('');
 const loggingIn = ref(false);
+const accessDenied = ref(false);
 let unsubAuth = null;
 
 onMounted(() => {
   unsubAuth = onAuthStateChanged(auth, (u) => {
+    if (u && u.email !== ADMIN_EMAIL) {
+      accessDenied.value = true;
+      signOut(auth);
+      user.value = null;
+      authLoading.value = false;
+      return;
+    }
+    accessDenied.value = false;
     user.value = u;
     authLoading.value = false;
   });
@@ -32,6 +42,7 @@ onUnmounted(() => unsubAuth && unsubAuth());
 
 async function login() {
   loginError.value = '';
+  accessDenied.value = false;
   loggingIn.value = true;
   try {
     await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
@@ -44,6 +55,7 @@ async function login() {
 
 async function loginWithGoogle() {
   loginError.value = '';
+  accessDenied.value = false;
   loggingIn.value = true;
   try {
     const provider = new GoogleAuthProvider();
@@ -253,6 +265,9 @@ async function deleteBooking(b) {
         <input type="password" v-model="password" placeholder="Password" required autocomplete="current-password">
 
         <p v-if="loginError" class="admin-error">{{ loginError }}</p>
+        <p v-if="accessDenied" class="admin-error">
+          Questo account non è autorizzato ad accedere a questo pannello.
+        </p>
 
         <button type="submit" :disabled="loggingIn">{{ loggingIn ? 'Accesso in corso...' : 'Accedi' }}</button>
 

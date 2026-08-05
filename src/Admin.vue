@@ -211,6 +211,16 @@ function cleanPhoneForWa(b) {
   return `${b.country || ''}${b.phone || ''}`.replace(/[^\d]/g, '');
 }
 
+function telHref(b) {
+  const digits = cleanPhoneForWa(b);
+  return digits ? `tel:+${digits}` : null;
+}
+
+function waHref(b) {
+  const digits = cleanPhoneForWa(b);
+  return digits ? `https://wa.me/${digits}` : null;
+}
+
 async function toggleConfirm(b) {
   const willBeConfirmed = !b.confirmed;
   const onMobile = isMobileDevice();
@@ -340,22 +350,41 @@ async function deleteBooking(b) {
                 </span>
               </div>
 
+              <p class="admin-when">{{ formatCreatedAt(b.createdAt) }}</p>
+
               <p class="admin-line"><span>Servizio</span>{{ b.service || '—' }}</p>
-              <p class="admin-line"><span>Telefono</span>{{ b.country }} {{ b.phone }}</p>
+              <p class="admin-line admin-line-phone">
+                <span>Telefono</span>
+                <a v-if="telHref(b)" :href="telHref(b)" class="admin-phone-link">{{ b.country }} {{ b.phone }}</a>
+                <template v-else>{{ b.country }} {{ b.phone }}</template>
+                <a
+                  v-if="waHref(b)"
+                  :href="waHref(b)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="admin-wa-btn"
+                  aria-label="Scrivi su WhatsApp"
+                  title="Scrivi su WhatsApp"
+                >
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.06-1.33A10 10 0 1 0 12 2Zm0 18.2a8.16 8.16 0 0 1-4.17-1.14l-.3-.18-3 .79.8-2.92-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.52-6.14c-.25-.12-1.45-.72-1.68-.8-.22-.08-.39-.12-.55.12-.16.25-.63.8-.77.96-.14.16-.28.18-.53.06-.25-.12-1.04-.38-1.98-1.22-.73-.65-1.22-1.45-1.37-1.7-.14-.25-.02-.38.11-.5.11-.11.25-.28.37-.42.12-.14.16-.25.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.33-.76-1.82-.2-.48-.4-.41-.55-.42h-.47c-.16 0-.42.06-.64.3-.22.25-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.45-.59 1.65-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.47-.28Z"/>
+                  </svg>
+                </a>
+              </p>
               <p v-if="b.hotel" class="admin-line"><span>Destinazione</span>{{ b.hotel }}</p>
               <p v-if="b.flight" class="admin-line"><span>Volo</span>{{ b.flight }}</p>
               <p v-if="b.people" class="admin-line"><span>Persone</span>{{ b.people }}</p>
               <p v-if="b.bags" class="admin-line"><span>Valigie</span>{{ b.bags }}</p>
               <p v-if="b.details" class="admin-line"><span>Note</span>{{ b.details }}</p>
 
-              <p class="admin-meta">Richiesta ricevuta: {{ formatCreatedAt(b.createdAt) }}</p>
-
               <div class="admin-actions">
                 <button class="admin-toggle" @click="toggleConfirm(b)">
                   {{ b.confirmed ? 'Segna come non confermata' : 'Conferma prenotazione' }}
                 </button>
-                <button class="admin-delete" @click="deleteBooking(b)">
-                  Elimina
+                <button class="admin-delete" @click="deleteBooking(b)" aria-label="Elimina" title="Elimina">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/>
+                  </svg>
                 </button>
               </div>
             </article>
@@ -412,7 +441,7 @@ html,body{background:var(--ink);}
   padding:20px 24px; border-bottom:1px solid var(--line); position:sticky; top:0;
   background:var(--ink); z-index:5;
 }
-.admin-header h1{font-family:'Fraunces',serif; font-size:1.2rem; font-weight:500;}
+.admin-header h1{font-family:'Outfit',sans-serif; font-size:1.25rem; font-weight:600; letter-spacing:0.01em;}
 .admin-logout{
   background:none; border:1px solid var(--line); color:var(--steel);
   padding:8px 16px; font-size:0.8rem; cursor:pointer;
@@ -426,12 +455,14 @@ html,body{background:var(--ink);}
 .admin-filter-group{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .admin-filter-label{ color:var(--steel); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; margin-right:2px; }
 .admin-filter-group button{
-  background:none; border:1px solid var(--line); color:var(--steel);
-  padding:6px 12px; font-size:0.76rem; cursor:pointer; letter-spacing:0.02em;
+  background:none; border:1px solid var(--line); color:var(--steel); border-radius:20px;
+  padding:6px 14px; font-size:0.76rem; cursor:pointer; letter-spacing:0.02em;
+  transition:box-shadow .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
 }
 .admin-filter-group button:hover{ border-color:var(--brass); color:var(--brass-bright); }
 .admin-filter-group button.active{
   border-color:var(--brass); color:var(--ink); background:var(--brass-bright);
+  box-shadow:0 0 12px rgba(217,183,127,0.45);
 }
 .admin-day{margin-bottom:36px;}
 .admin-day h2{
@@ -445,26 +476,38 @@ html,body{background:var(--ink);}
 }
 .admin-card.is-confirmed{border-color:#4a8f6a;}
 .admin-card-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
-.admin-card-top b{font-family:'Fraunces',serif; font-size:1.05rem;}
+.admin-card-top b{font-family:'Outfit',sans-serif; font-size:1.08rem; font-weight:600;}
 .admin-badge{
   font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em;
-  padding:4px 9px; border:1px solid var(--line); color:var(--steel);
+  padding:4px 9px; border-radius:20px; border:1px solid var(--line); color:var(--steel);
 }
-.admin-badge.on{border-color:#4a8f6a; color:#7fcf9e;}
-.admin-line{font-size:0.85rem; color:var(--paper); margin-bottom:4px;}
-.admin-line span{color:var(--steel); display:inline-block; min-width:88px;}
-.admin-meta{font-size:0.72rem; color:var(--steel); margin-top:10px;}
+.admin-badge.on{border-color:rgba(74,143,106,0.5); color:#8fe0ac; background:rgba(74,143,106,0.16);}
+.admin-when{
+  font-family:'IBM Plex Mono',monospace; font-size:0.95rem; font-weight:500;
+  color:var(--brass-bright); margin-bottom:12px; letter-spacing:0.02em;
+}
+.admin-line{font-size:0.85rem; color:var(--paper); margin-bottom:4px; display:flex; align-items:center; gap:6px;}
+.admin-line span{color:var(--steel); display:inline-block; min-width:88px; flex-shrink:0;}
+.admin-phone-link{color:var(--paper); text-decoration:none; border-bottom:1px dotted var(--steel);}
+.admin-phone-link:hover{color:var(--brass-bright); border-color:var(--brass-bright);}
+.admin-wa-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:24px; height:24px; border-radius:50%; margin-left:2px;
+  color:#25D366; background:rgba(37,211,102,0.12); flex-shrink:0;
+}
+.admin-wa-btn:hover{background:rgba(37,211,102,0.22);}
 .admin-toggle{
   width:100%; background:none; border:1px solid var(--line);
   color:var(--brass-bright); padding:10px; font-size:0.78rem; text-transform:uppercase;
   letter-spacing:0.03em; cursor:pointer;
 }
 .admin-toggle:hover{border-color:var(--brass); background:rgba(176,141,87,0.08);}
-.admin-actions{margin-top:14px; display:flex; gap:8px;}
+.admin-actions{margin-top:14px; display:flex; align-items:stretch; gap:8px;}
 .admin-actions .admin-toggle{margin-top:0; flex:1;}
 .admin-delete{
-  background:none; border:1px solid #6b3030; color:#e08a8a; padding:10px 14px;
-  font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  width:40px; background:none; border:1px solid #6b3030; color:#e08a8a;
+  cursor:pointer; border-radius:2px;
 }
-.admin-delete:hover{border-color:#c94f4f; background:rgba(201,79,79,0.1);}
+.admin-delete:hover{border-color:#c94f4f; background:rgba(201,79,79,0.1); color:#ff9d9d;}
 </style>

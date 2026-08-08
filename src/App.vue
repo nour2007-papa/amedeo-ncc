@@ -172,12 +172,12 @@ const dict = {
     "foot_terms": "Termini e condizioni",
     "foot_contact_title": "Contatti",
     "privacy_title": "Informativa sulla Privacy",
-    "privacy_p1": "Amedeo NCC, con sede operativa a Milano, in qualita di titolare del trattamento, raccoglie i dati personali forniti volontariamente tramite il modulo di contatto (nome, telefono, email, dati relativi al servizio richiesto) al solo fine di rispondere alle vostre richieste di prenotazione e preventivo.",
+    "privacy_p1": "Grifone NCC, con sede operativa a Milano, in qualita di titolare del trattamento, raccoglie i dati personali forniti volontariamente tramite il modulo di contatto (nome, telefono, email, dati relativi al servizio richiesto) al solo fine di rispondere alle vostre richieste di prenotazione e preventivo.",
     "privacy_p2": "I dati saranno trattati in conformita al Regolamento Generale sulla Protezione dei Dati (GDPR, Reg. UE 2016/679). Non saranno ceduti a terzi salvo obbligo di legge. I dati saranno conservati per il tempo strettamente necessario all'evasione della richiesta e comunque non oltre 24 mesi dalla raccolta.",
     "privacy_p3": "<b>Diritti dell'interessato:</b> Ai sensi degli artt. 15-22 del GDPR, avete diritto di accedere, rettificare, cancellare, limitare il trattamento, portabilita dei dati e opposizione. Per esercitare i vostri diritti, contattateci a amedeo018@libero.it.",
     "privacy_p4": "<b>Cookie:</b> Questo sito utilizza esclusivamente cookie tecnici necessari al funzionamento. Non vengono utilizzati cookie di profilazione o di terze parti.",
     "privacy_l1": "Base giuridica: consenso (modulo di contatto) e legittimo interesse (esecuzione del servizio).",
-    "privacy_l2": "Responsabile della protezione dei dati: Amedeo NCC — amedeo018@libero.it",
+    "privacy_l2": "Responsabile della protezione dei dati: Grifone NCC — amedeo018@libero.it",
     "privacy_p5": "Ultimo aggiornamento: Luglio 2026.",
     "cookie_text": "Utilizziamo solo cookie tecnici necessari al funzionamento di questo sito. Cliccando \"Accetta\" acconsenti all'uso dei cookie. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">Informativa</a>",
     "cookie_accept": "Accetta",
@@ -312,12 +312,12 @@ const dict = {
     "foot_terms": "Terms & Conditions",
     "foot_contact_title": "Contact",
     "privacy_title": "Privacy Policy",
-    "privacy_p1": "Amedeo NCC, based in Milan, as data controller, collects personal data provided voluntarily through the contact form (name, phone, email, service details) solely to respond to your booking and quote requests.",
+    "privacy_p1": "Grifone NCC, based in Milan, as data controller, collects personal data provided voluntarily through the contact form (name, phone, email, service details) solely to respond to your booking and quote requests.",
     "privacy_p2": "Data will be processed in compliance with the General Data Protection Regulation (GDPR, EU Reg. 2016/679). Data will not be shared with third parties except as required by law. Data will be retained for no longer than 24 months.",
     "privacy_p3": "<b>Your rights:</b> Under Articles 15-22 of the GDPR, you have the right to access, rectify, erase, restrict processing, data portability and objection. To exercise your rights, contact us at amedeo018@libero.it.",
     "privacy_p4": "<b>Cookies:</b> This website uses only strictly necessary technical cookies. No profiling or third-party cookies are used.",
     "privacy_l1": "Legal basis: consent (contact form) and legitimate interest (service execution).",
-    "privacy_l2": "Data Protection Officer: Amedeo NCC — amedeo018@libero.it",
+    "privacy_l2": "Data Protection Officer: Grifone NCC — amedeo018@libero.it",
     "privacy_p5": "Last updated: July 2026.",
     "cookie_text": "We only use technical cookies necessary for this site to function. By clicking \"Accept\" you consent to the use of cookies. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">Policy</a>",
     "cookie_accept": "Accept",
@@ -904,7 +904,7 @@ function sendBookingToWhatsApp() {
   }
 
   const lines = [
-    `📋 Nuova richiesta di prenotazione — Amedeo NCC`,
+    `📋 Nuova richiesta di prenotazione — Grifone NCC`,
     `Nome: ${form.name}`,
     `Telefono: ${form.country} ${form.phone}`,
     `Servizio: ${form.service}`,
@@ -1262,7 +1262,7 @@ onUnmounted(() => {
   </div>
   <div class="footer-bottom">
     <!-- ⚠️ TODO: sostituire con la Partita IVA reale prima di pubblicare online -->
-    <span>© 2026 Amedeo NCC · P.IVA XXXXXXXXXXX</span>
+    <span>© 2026 Grifone NCC · P.IVA XXXXXXXXXXX</span>
     <span>{{ t.foot_note }}</span>
   </div>
 </footer>

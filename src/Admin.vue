@@ -247,13 +247,13 @@ async function toggleConfirm(b) {
       return;
     }
     const lines = [
-      `✅ Prenotazione confermata — Amedeo NCC`,
+      `✅ Prenotazione confermata — Grifone NCC`,
       `Ciao ${b.name || ''}, la tua richiesta è stata confermata.`,
     ];
     if (b.service) lines.push(`Servizio: ${b.service}`);
     if (b.serviceDate) lines.push(`Data: ${b.serviceDate}`);
     if (b.hotel) lines.push(`Destinazione: ${b.hotel}`);
-    lines.push(`Grazie per aver scelto Amedeo NCC!`);
+    lines.push(`Grazie per aver scelto Grifone NCC!`);
     const text = encodeURIComponent(lines.join('\n'));
     const url = `https://wa.me/${phone}?text=${text}`;
     if (onMobile) {
@@ -282,7 +282,7 @@ async function deleteBooking(b) {
 
     <div v-else-if="!user" class="admin-center">
       <form class="admin-login-box" @submit.prevent="login">
-        <h1>Amedeo NCC</h1>
+        <h1>Grifone NCC</h1>
         <p class="admin-subtitle">Gestione prenotazioni</p>
 
         <input type="email" v-model="email" placeholder="Email" required autocomplete="username">
@@ -309,7 +309,7 @@ async function deleteBooking(b) {
 
     <div v-else class="admin-dashboard">
       <header class="admin-header">
-        <h1>Prenotazioni — Amedeo NCC</h1>
+        <h1>Prenotazioni — Grifone NCC</h1>
         <button class="admin-logout" @click="logout">Esci</button>
       </header>
 

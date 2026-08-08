@@ -1023,11 +1023,7 @@ onUnmounted(() => {
 <header>
   <nav class="wrap">
     <div class="logo">
-      <svg width="34" height="18" viewBox="0 0 335 175" aria-hidden="true">
-        <path d="M43,133C43,115 49,107 65,107L107,107L139,65C143,59 149,55 157,55L219,55C227,55 233,59 237,65L269,107L297,107C313,107 319,115 319,133C319,143 313,147 303,147L59,147C49,147 43,143 43,133Z" fill="#B08D57"/>
-        <circle cx="74" cy="147" r="8" fill="#D9B77F"/>
-        <circle cx="261" cy="147" r="8" fill="#D9B77F"/>
-      </svg>
+      <img src="@/assets/griffin-logo.png" alt="Grifone NCC" style="height:38px;width:auto;" />
       <span class="logo-text">GRIFONE <b>NCC</b></span>
     </div>
     <div class="nav-links" :class="{ active: navOpen }">

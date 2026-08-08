@@ -1023,7 +1023,7 @@ onUnmounted(() => {
 <header>
   <nav class="wrap">
     <div class="logo">
-      <img src="@/assets/griffin-logo.png" alt="Grifone NCC" style="height:38px;width:auto;" />
+      <img src="./assets/griffin-logo.png" alt="Grifone NCC" style="height:38px;width:auto;" />
       <span class="logo-text">GRIFONE <b>NCC</b></span>
     </div>
     <div class="nav-links" :class="{ active: navOpen }">

@@ -1028,7 +1028,7 @@ onUnmounted(() => {
         <circle cx="74" cy="147" r="8" fill="#D9B77F"/>
         <circle cx="261" cy="147" r="8" fill="#D9B77F"/>
       </svg>
-      <span class="logo-text">AMEDEO <b>NCC</b></span>
+      <span class="logo-text">GRIFONE <b>NCC</b></span>
     </div>
     <div class="nav-links" :class="{ active: navOpen }">
       <a href="#servizi" @click="navOpen=false">{{ t.nav_services }}</a>

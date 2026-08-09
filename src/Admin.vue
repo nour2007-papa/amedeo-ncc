@@ -26,6 +26,11 @@ const loggingIn = ref(false);
 const accessDenied = ref(false);
 let unsubAuth = null;
 
+/* ---------- Modale "nome autista" alla conferma ---------- */
+const driverModalBooking = ref(null);
+const driverNameInput = ref('');
+const driverModalError = ref('');
+
 onMounted(() => {
   unsubAuth = onAuthStateChanged(auth, (u) => {
     if (u && u.email !== ADMIN_EMAIL) {
@@ -223,8 +228,37 @@ function waHref(b) {
   return digits ? `https://wa.me/${digits}` : null;
 }
 
-async function toggleConfirm(b) {
+function toggleConfirm(b) {
   const willBeConfirmed = !b.confirmed;
+  if (willBeConfirmed) {
+    // Prima di confermare, chiediamo il nome dell'autista assegnato.
+    driverModalBooking.value = b;
+    driverNameInput.value = '';
+    driverModalError.value = '';
+    return;
+  }
+  // Annullare una conferma non richiede il nome autista: procede subito.
+  performToggle(b, false, '');
+}
+
+function cancelDriverModal() {
+  driverModalBooking.value = null;
+  driverNameInput.value = '';
+  driverModalError.value = '';
+}
+
+function confirmDriverModal() {
+  const name = driverNameInput.value.trim();
+  if (!name) {
+    driverModalError.value = 'Inserisci il nome dell\'autista.';
+    return;
+  }
+  const b = driverModalBooking.value;
+  driverModalBooking.value = null;
+  performToggle(b, true, name);
+}
+
+async function performToggle(b, willBeConfirmed, driverName) {
   const onMobile = isMobileDevice();
 
   // Desktop: open the tab synchronously, right when the click happens —
@@ -235,7 +269,9 @@ async function toggleConfirm(b) {
   const waWindow = (willBeConfirmed && !onMobile) ? window.open('', '_blank') : null;
 
   try {
-    await updateDoc(doc(db, 'bookings', b.id), { confirmed: willBeConfirmed });
+    const updates = { confirmed: willBeConfirmed };
+    if (willBeConfirmed && driverName) updates.driverName = driverName;
+    await updateDoc(doc(db, 'bookings', b.id), updates);
   } catch (e) {
     alert('Errore: impossibile aggiornare lo stato. Riprova.');
     if (waWindow) waWindow.close();
@@ -251,7 +287,9 @@ async function toggleConfirm(b) {
   if (fleetDb) {
     try {
       if (willBeConfirmed && !b.fleetDocId) {
-        const noteParts = [`Da sito agenzia · ${b.service || ''}`];
+        const noteParts = [];
+        if (driverName) noteParts.push(`Autista: ${driverName}`);
+        noteParts.push(`Da sito agenzia · ${b.service || ''}`);
         if (b.flight) noteParts.push(`Volo: ${b.flight}`);
         if (b.people) noteParts.push(`Persone: ${b.people}`);
         if (b.bags) noteParts.push(`Valigie: ${b.bags}`);
@@ -271,10 +309,19 @@ async function toggleConfirm(b) {
         });
         await updateDoc(doc(db, 'bookings', b.id), { fleetDocId: fleetDoc.id });
       } else if (b.fleetDocId) {
-        // Già specchiata in precedenza: aggiorna solo lo stato (confermata/annullata).
-        await updateDoc(doc(fleetDb, 'prenotazioni', b.fleetDocId), {
-          stato: willBeConfirmed ? 'confermata' : 'annullata',
-        });
+        // Già specchiata in precedenza: aggiorna lo stato (confermata/annullata)
+        // e, se è stato inserito un nome autista alla riconferma, anche la nota.
+        const fleetUpdates = { stato: willBeConfirmed ? 'confermata' : 'annullata' };
+        if (willBeConfirmed && driverName) {
+          const noteParts = [`Autista: ${driverName}`];
+          noteParts.push(`Da sito agenzia · ${b.service || ''}`);
+          if (b.flight) noteParts.push(`Volo: ${b.flight}`);
+          if (b.people) noteParts.push(`Persone: ${b.people}`);
+          if (b.bags) noteParts.push(`Valigie: ${b.bags}`);
+          if (b.details) noteParts.push(b.details);
+          fleetUpdates.note = noteParts.join(' | ');
+        }
+        await updateDoc(doc(fleetDb, 'prenotazioni', b.fleetDocId), fleetUpdates);
       }
     } catch (e) {
       console.warn('Impossibile aggiornare lo specchio su ncc-fleet:', e);
@@ -295,6 +342,7 @@ async function toggleConfirm(b) {
     if (b.service) lines.push(`Servizio: ${b.service}`);
     if (b.serviceDate) lines.push(`Data: ${b.serviceDate}`);
     if (b.hotel) lines.push(`Destinazione: ${b.hotel}`);
+    if (driverName) lines.push(`Autista: ${driverName}`);
     lines.push(`Grazie per aver scelto Grifone NCC!`);
     const text = encodeURIComponent(lines.join('\n'));
     const url = `https://wa.me/${phone}?text=${text}`;
@@ -439,6 +487,26 @@ async function installApp() {
         </div>
       </div>
 
+      <div v-if="driverModalBooking" class="admin-modal-overlay" @click.self="cancelDriverModal">
+        <div class="admin-modal">
+          <h2>Conferma prenotazione</h2>
+          <p class="admin-modal-hint">Chi è l'autista assegnato a {{ driverModalBooking.name || 'questo cliente' }}?</p>
+          <input
+            type="text"
+            v-model.trim="driverNameInput"
+            placeholder="Nome autista"
+            class="admin-driver-input"
+            @keyup.enter="confirmDriverModal"
+            autofocus
+          >
+          <p v-if="driverModalError" class="admin-modal-error">{{ driverModalError }}</p>
+          <div class="admin-modal-actions">
+            <button class="admin-logout" @click="cancelDriverModal">Annulla</button>
+            <button class="admin-install" @click="confirmDriverModal">Conferma</button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="bookings.length > 0" class="admin-filters">
         <div class="admin-filter-group">
           <span class="admin-filter-label">Vista:</span>
@@ -478,6 +546,7 @@ async function installApp() {
 
               <p class="admin-when">{{ formatCreatedAt(b.createdAt) }}</p>
 
+              <p v-if="b.confirmed && b.driverName" class="admin-line"><span>Autista</span>{{ b.driverName }}</p>
               <p class="admin-line"><span>Servizio</span>{{ b.service || '—' }}</p>
               <p class="admin-line admin-line-phone">
                 <span>Telefono</span>
@@ -600,6 +669,15 @@ html,body{background:var(--ink);}
 .admin-modal h2{font-family:'Outfit',sans-serif; font-size:1.05rem; color:var(--paper);}
 .admin-modal ol{padding-left:20px; display:flex; flex-direction:column; gap:8px; color:var(--paper); font-size:0.88rem; line-height:1.4;}
 .admin-modal .admin-toggle{margin-top:4px;}
+.admin-modal-hint{color:var(--steel); font-size:0.85rem; line-height:1.4;}
+.admin-driver-input{
+  background:var(--surface-2); border:1px solid var(--line); color:var(--paper);
+  padding:12px 14px; font-family:'Work Sans',sans-serif; font-size:0.92rem;
+}
+.admin-driver-input:focus{outline:none; border-color:var(--brass);}
+.admin-modal-error{color:#e08a8a; font-size:0.8rem;}
+.admin-modal-actions{display:flex; gap:10px; justify-content:flex-end;}
+.admin-modal-actions .admin-install{margin-top:0;}
 .admin-days{max-width:900px; margin:0 auto; padding:24px;}
 .admin-filters{
   max-width:900px; margin:0 auto; padding:16px 24px 0;

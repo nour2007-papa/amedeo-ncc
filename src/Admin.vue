@@ -274,6 +274,44 @@ async function deleteBooking(b) {
     alert('Errore: impossibile eliminare la richiesta. Riprova.');
   }
 }
+
+/* ---------- Installazione come app (PWA) ---------- */
+const isStandalone = ref(
+  window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+);
+const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+let deferredInstallPrompt = null;
+const canInstall = ref(false);
+const showIosHelp = ref(false);
+
+function onBeforeInstallPrompt(e) {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  canInstall.value = true;
+}
+function onAppInstalled() {
+  canInstall.value = false;
+  deferredInstallPrompt = null;
+  isStandalone.value = true;
+}
+window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+window.addEventListener('appinstalled', onAppInstalled);
+onUnmounted(() => {
+  window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+  window.removeEventListener('appinstalled', onAppInstalled);
+});
+
+async function installApp() {
+  if (isIos) {
+    showIosHelp.value = true;
+    return;
+  }
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  canInstall.value = false;
+}
 </script>
 
 <template>
@@ -310,8 +348,29 @@ async function deleteBooking(b) {
     <div v-else class="admin-dashboard">
       <header class="admin-header">
         <h1>Prenotazioni — Grifone NCC</h1>
-        <button class="admin-logout" @click="logout">Esci</button>
+        <div class="admin-header-actions">
+          <button
+            v-if="!isStandalone && (canInstall || isIos)"
+            class="admin-install"
+            @click="installApp"
+          >
+            Installa app
+          </button>
+          <button class="admin-logout" @click="logout">Esci</button>
+        </div>
       </header>
+
+      <div v-if="showIosHelp" class="admin-modal-overlay" @click.self="showIosHelp = false">
+        <div class="admin-modal">
+          <h2>Installa su iPhone/iPad</h2>
+          <ol>
+            <li>Tocca l'icona <b>Condividi</b> ⬆️ in basso nella barra di Safari</li>
+            <li>Scorri e scegli <b>"Aggiungi a Home"</b></li>
+            <li>Tocca <b>"Aggiungi"</b> in alto a destra</li>
+          </ol>
+          <button class="admin-toggle" @click="showIosHelp = false">Ho capito</button>
+        </div>
+      </div>
 
       <div v-if="bookings.length > 0" class="admin-filters">
         <div class="admin-filter-group">
@@ -442,11 +501,29 @@ html,body{background:var(--ink);}
   background:var(--ink); z-index:5;
 }
 .admin-header h1{font-family:'Outfit',sans-serif; font-size:1.25rem; font-weight:600; letter-spacing:0.01em;}
+.admin-header-actions{display:flex; align-items:center; gap:10px;}
 .admin-logout{
   background:none; border:1px solid var(--line); color:var(--steel);
   padding:8px 16px; font-size:0.8rem; cursor:pointer;
 }
 .admin-logout:hover{border-color:var(--brass); color:var(--brass-bright);}
+.admin-install{
+  background:var(--brass); color:var(--ink); border:none;
+  padding:8px 16px; font-size:0.8rem; font-weight:600; letter-spacing:0.02em;
+  cursor:pointer;
+}
+.admin-install:hover{background:var(--brass-bright);}
+.admin-modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.admin-modal{
+  background:var(--surface); border:1px solid var(--line); max-width:340px;
+  width:100%; padding:24px; display:flex; flex-direction:column; gap:14px;
+}
+.admin-modal h2{font-family:'Outfit',sans-serif; font-size:1.05rem; color:var(--paper);}
+.admin-modal ol{padding-left:20px; display:flex; flex-direction:column; gap:8px; color:var(--paper); font-size:0.88rem; line-height:1.4;}
+.admin-modal .admin-toggle{margin-top:4px;}
 .admin-days{max-width:900px; margin:0 auto; padding:24px;}
 .admin-filters{
   max-width:900px; margin:0 auto; padding:16px 24px 0;

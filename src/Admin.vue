@@ -5,9 +5,10 @@ import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
-  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc,
+  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
+import { fleetDb } from './firebase-fleet.js';
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -234,11 +235,42 @@ async function toggleConfirm(b) {
   const waWindow = (willBeConfirmed && !onMobile) ? window.open('', '_blank') : null;
 
   try {
-    await updateDoc(doc(db, 'bookings', b.id), { confirmed: willBeConfirmed });
+    const updates = { confirmed: willBeConfirmed };
+    if (willBeConfirmed && !b.fleetSynced) updates.fleetSynced = true;
+    await updateDoc(doc(db, 'bookings', b.id), updates);
   } catch (e) {
     alert('Errore: impossibile aggiornare lo stato. Riprova.');
     if (waWindow) waWindow.close();
     return;
+  }
+
+  // Specchia la prenotazione confermata nel pannello ncc-fleet ("Prenotazioni"),
+  // mappata sui campi che quella tabella si aspetta. Solo la prima volta che
+  // viene confermata (fleetSynced evita doppioni se si conferma/annulla più volte).
+  // Indipendente dall'aggiornamento sopra: se fallisce, la conferma sul sito resta valida.
+  if (willBeConfirmed && !b.fleetSynced && fleetDb) {
+    try {
+      const noteParts = [`Da sito agenzia · ${b.service || ''}`];
+      if (b.flight) noteParts.push(`Volo: ${b.flight}`);
+      if (b.people) noteParts.push(`Persone: ${b.people}`);
+      if (b.bags) noteParts.push(`Valigie: ${b.bags}`);
+      if (b.details) noteParts.push(b.details);
+
+      await addDoc(collection(fleetDb, 'prenotazioni'), {
+        cliente: b.name || '',
+        telefono: `${b.country || ''} ${b.phone || ''}`.trim(),
+        dataOra: b.serviceDate ? `${b.serviceDate}T00:00:00` : new Date().toISOString(),
+        zona: 'Sito agenzia',
+        destinazione: b.hotel || b.service || '',
+        veicolo: '',
+        stato: 'confermata',
+        note: noteParts.join(' | '),
+        createdAt: new Date().toISOString(),
+        reminderSent: false,
+      });
+    } catch (e) {
+      console.warn('Impossibile specchiare la prenotazione su ncc-fleet:', e);
+    }
   }
   if (willBeConfirmed) {
     const phone = cleanPhoneForWa(b);

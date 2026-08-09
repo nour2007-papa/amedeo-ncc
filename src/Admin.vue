@@ -19,6 +19,7 @@ const user = ref(null);
 const authLoading = ref(true);
 const email = ref('');
 const password = ref('');
+const showPassword = ref(false);
 const loginError = ref('');
 const loggingIn = ref(false);
 const accessDenied = ref(false);
@@ -324,7 +325,23 @@ async function installApp() {
         <p class="admin-subtitle">Gestione prenotazioni</p>
 
         <input type="email" v-model="email" placeholder="Email" required autocomplete="username">
-        <input type="password" v-model="password" placeholder="Password" required autocomplete="current-password">
+        <div class="admin-password-field">
+          <input
+            :type="showPassword ? 'text' : 'password'"
+            v-model="password"
+            placeholder="Password"
+            required
+            autocomplete="current-password"
+          >
+          <button
+            type="button"
+            class="admin-toggle-pw"
+            @click="showPassword = !showPassword"
+            :aria-label="showPassword ? 'Nascondi password' : 'Mostra password'"
+          >
+            {{ showPassword ? 'Nascondi' : 'Mostra' }}
+          </button>
+        </div>
 
         <p v-if="loginError" class="admin-error">{{ loginError }}</p>
         <p v-if="accessDenied" class="admin-error">
@@ -480,6 +497,14 @@ html,body{background:var(--ink);}
   padding:12px 14px; font-family:'Work Sans',sans-serif; font-size:0.92rem;
 }
 .admin-login-box input:focus{outline:none; border-color:var(--brass);}
+.admin-password-field{position:relative; display:flex;}
+.admin-password-field input{width:100%; padding-right:78px;}
+.admin-toggle-pw{
+  position:absolute; top:50%; right:6px; transform:translateY(-50%);
+  background:none; border:none; color:var(--steel); font-size:0.74rem;
+  text-transform:uppercase; letter-spacing:0.03em; cursor:pointer; padding:6px 8px;
+}
+.admin-toggle-pw:hover{color:var(--brass-bright);}
 .admin-login-box button{
   background:var(--brass); color:var(--ink); border:none; padding:13px;
   font-weight:600; letter-spacing:0.03em; text-transform:uppercase; font-size:0.82rem;

@@ -380,7 +380,16 @@ async function installApp() {
             @click="showPassword = !showPassword"
             :aria-label="showPassword ? 'Nascondi password' : 'Mostra password'"
           >
-            {{ showPassword ? 'Nascondi' : 'Mostra' }}
+            <svg v-if="!showPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+              <path d="M10.73 5.08A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+              <path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 7 11 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+              <line x1="2" y1="2" x2="22" y2="22"></line>
+            </svg>
           </button>
         </div>
 
@@ -539,11 +548,12 @@ html,body{background:var(--ink);}
 }
 .admin-login-box input:focus{outline:none; border-color:var(--brass);}
 .admin-password-field{position:relative; display:flex;}
-.admin-password-field input{width:100%; padding-right:78px;}
+.admin-password-field input{width:100%; padding-right:44px;}
 .admin-toggle-pw{
-  position:absolute; top:50%; right:6px; transform:translateY(-50%);
-  background:none; border:none; color:var(--steel); font-size:0.74rem;
-  text-transform:uppercase; letter-spacing:0.03em; cursor:pointer; padding:6px 8px;
+  position:absolute; top:50%; right:8px; transform:translateY(-50%);
+  background:none; border:none; color:var(--steel); cursor:pointer;
+  padding:6px; display:flex; align-items:center; justify-content:center;
+  line-height:0;
 }
 .admin-toggle-pw:hover{color:var(--brass-bright);}
 .admin-login-box button{

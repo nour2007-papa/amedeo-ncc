@@ -29,7 +29,29 @@ let unsubAuth = null;
 /* ---------- Modale "nome autista" alla conferma ---------- */
 const driverModalBooking = ref(null);
 const driverNameInput = ref('');
+const confirmLang = ref('it');
 const driverModalError = ref('');
+
+const WA_CONFIRM_TEXT = {
+  it: {
+    title: '✅ Prenotazione confermata — Grifone NCC',
+    hi: (name) => `Ciao ${name}, la tua richiesta è stata confermata.`,
+    service: 'Servizio', date: 'Data', destination: 'Destinazione', driver: 'Autista',
+    thanks: 'Grazie per aver scelto Grifone NCC!',
+  },
+  en: {
+    title: '✅ Booking confirmed — Grifone NCC',
+    hi: (name) => `Hi ${name}, your request has been confirmed.`,
+    service: 'Service', date: 'Date', destination: 'Destination', driver: 'Driver',
+    thanks: 'Thank you for choosing Grifone NCC!',
+  },
+  ar: {
+    title: '✅ تم تأكيد الحجز — Grifone NCC',
+    hi: (name) => `مرحبًا ${name}، تم تأكيد طلبك.`,
+    service: 'الخدمة', date: 'التاريخ', destination: 'الوجهة', driver: 'السائق',
+    thanks: 'شكرًا لاختيارك Grifone NCC!',
+  },
+};
 
 onMounted(() => {
   unsubAuth = onAuthStateChanged(auth, (u) => {
@@ -231,14 +253,15 @@ function waHref(b) {
 function toggleConfirm(b) {
   const willBeConfirmed = !b.confirmed;
   if (willBeConfirmed) {
-    // Prima di confermare, chiediamo il nome dell'autista assegnato.
+    // Prima di confermare, chiediamo il nome dell'autista e la lingua del messaggio.
     driverModalBooking.value = b;
     driverNameInput.value = '';
+    confirmLang.value = (b.lang && WA_CONFIRM_TEXT[b.lang]) ? b.lang : 'it';
     driverModalError.value = '';
     return;
   }
-  // Annullare una conferma non richiede il nome autista: procede subito.
-  performToggle(b, false, '');
+  // Annullare una conferma non richiede questi dati: procede subito.
+  performToggle(b, false, '', 'it');
 }
 
 function cancelDriverModal() {
@@ -254,11 +277,12 @@ function confirmDriverModal() {
     return;
   }
   const b = driverModalBooking.value;
+  const lang = confirmLang.value;
   driverModalBooking.value = null;
-  performToggle(b, true, name);
+  performToggle(b, true, name, lang);
 }
 
-async function performToggle(b, willBeConfirmed, driverName) {
+async function performToggle(b, willBeConfirmed, driverName, lang) {
   const onMobile = isMobileDevice();
 
   // Desktop: open the tab synchronously, right when the click happens —
@@ -335,15 +359,13 @@ async function performToggle(b, willBeConfirmed, driverName) {
       if (waWindow) waWindow.close();
       return;
     }
-    const lines = [
-      `✅ Prenotazione confermata — Grifone NCC`,
-      `Ciao ${b.name || ''}, la tua richiesta è stata confermata.`,
-    ];
-    if (b.service) lines.push(`Servizio: ${b.service}`);
-    if (b.serviceDate) lines.push(`Data: ${b.serviceDate}`);
-    if (b.hotel) lines.push(`Destinazione: ${b.hotel}`);
-    if (driverName) lines.push(`Autista: ${driverName}`);
-    lines.push(`Grazie per aver scelto Grifone NCC!`);
+    const T = WA_CONFIRM_TEXT[lang] || WA_CONFIRM_TEXT.it;
+    const lines = [T.title, T.hi(b.name || '')];
+    if (b.service) lines.push(`${T.service}: ${b.service}`);
+    if (b.serviceDate) lines.push(`${T.date}: ${b.serviceDate}`);
+    if (b.hotel) lines.push(`${T.destination}: ${b.hotel}`);
+    if (driverName) lines.push(`${T.driver}: ${driverName}`);
+    lines.push(T.thanks);
     const text = encodeURIComponent(lines.join('\n'));
     const url = `https://wa.me/${phone}?text=${text}`;
     if (onMobile) {
@@ -499,6 +521,16 @@ async function installApp() {
             @keyup.enter="confirmDriverModal"
             autofocus
           >
+          <p class="admin-modal-hint">Lingua del messaggio:</p>
+          <div class="admin-lang-picker">
+            <button
+              v-for="l in [['it','Italiano'],['en','English'],['ar','عربي']]"
+              :key="l[0]"
+              type="button"
+              :class="{ active: confirmLang === l[0] }"
+              @click="confirmLang = l[0]"
+            >{{ l[1] }}</button>
+          </div>
           <p v-if="driverModalError" class="admin-modal-error">{{ driverModalError }}</p>
           <div class="admin-modal-actions">
             <button class="admin-logout" @click="cancelDriverModal">Annulla</button>
@@ -676,6 +708,12 @@ html,body{background:var(--ink);}
 }
 .admin-driver-input:focus{outline:none; border-color:var(--brass);}
 .admin-modal-error{color:#e08a8a; font-size:0.8rem;}
+.admin-lang-picker{display:flex; gap:8px;}
+.admin-lang-picker button{
+  flex:1; background:var(--surface-2); border:1px solid var(--line); color:var(--steel);
+  padding:8px 10px; font-size:0.82rem; cursor:pointer;
+}
+.admin-lang-picker button.active{border-color:var(--brass); color:var(--brass-bright); background:rgba(196,164,88,0.12);}
 .admin-modal-actions{display:flex; gap:10px; justify-content:flex-end;}
 .admin-modal-actions .admin-install{margin-top:0;}
 .admin-days{max-width:900px; margin:0 auto; padding:24px;}

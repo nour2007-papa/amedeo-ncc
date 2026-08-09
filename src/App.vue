@@ -33,6 +33,7 @@ async function saveBookingToFirestore(formSnapshot) {
       hotel: formSnapshot.hotel || null,
       bags: formSnapshot.bags || null,
       details: formSnapshot.details || null,
+      lang: formSnapshot.lang || 'it',
       confirmed: false,
       createdAt: serverTimestamp(),
     });
@@ -923,7 +924,7 @@ function sendBookingToWhatsApp() {
   // blocking or delaying the WhatsApp handoff below — if it fails (e.g. no
   // internet to Firebase, or Firebase not yet configured), the booking
   // request still reaches WhatsApp normally.
-  saveBookingToFirestore({ ...form });
+  saveBookingToFirestore({ ...form, lang: currentLang.value });
 
   window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
 

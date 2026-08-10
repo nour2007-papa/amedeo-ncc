@@ -5,7 +5,7 @@ import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
-  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc,
+  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import { fleetDb } from './firebase-fleet.js';
@@ -29,7 +29,33 @@ let unsubAuth = null;
 /* ---------- Modale "nome autista" alla conferma ---------- */
 const driverModalBooking = ref(null);
 const driverNameInput = ref('');
+const driverPhoneInput = ref('');
 const confirmLang = ref('it');
+const driversList = ref([]); // autisti presi da ncc-fleet (nome + telefono)
+let driversListLoaded = false;
+
+async function loadDriversList() {
+  if (driversListLoaded || !fleetDb) return;
+  try {
+    const snap = await getDocs(collection(fleetDb, 'employees'));
+    driversList.value = snap.docs
+      .map((d) => d.data())
+      .filter((e) => e.name)
+      .map((e) => ({ name: e.name, phone: e.phone || '' }));
+    driversListLoaded = true;
+  } catch (e) {
+    console.warn('Impossibile caricare la lista autisti da ncc-fleet:', e);
+  }
+}
+
+function onDriverNameInput() {
+  const match = driversList.value.find(
+    (d) => d.name.trim().toLowerCase() === driverNameInput.value.trim().toLowerCase()
+  );
+  if (match && match.phone) {
+    driverPhoneInput.value = match.phone;
+  }
+}
 const driverModalError = ref('');
 
 const WA_CONFIRM_TEXT = {
@@ -253,44 +279,53 @@ function waHref(b) {
 function toggleConfirm(b) {
   const willBeConfirmed = !b.confirmed;
   if (willBeConfirmed) {
-    // Prima di confermare, chiediamo il nome dell'autista e la lingua del messaggio.
+    // Prima di confermare, chiediamo il nome/telefono dell'autista e la lingua del messaggio.
     driverModalBooking.value = b;
     driverNameInput.value = '';
+    driverPhoneInput.value = '';
     confirmLang.value = (b.lang && WA_CONFIRM_TEXT[b.lang]) ? b.lang : 'it';
     driverModalError.value = '';
+    loadDriversList();
     return;
   }
   // Annullare una conferma non richiede questi dati: procede subito.
-  performToggle(b, false, '', 'it');
+  performToggle(b, false, '', 'it', '');
 }
 
 function cancelDriverModal() {
   driverModalBooking.value = null;
   driverNameInput.value = '';
+  driverPhoneInput.value = '';
   driverModalError.value = '';
 }
 
 function confirmDriverModal() {
   const name = driverNameInput.value.trim();
+  const driverPhone = driverPhoneInput.value.trim();
   if (!name) {
     driverModalError.value = 'Inserisci il nome dell\'autista.';
+    return;
+  }
+  if (!driverPhone) {
+    driverModalError.value = 'Inserisci il numero WhatsApp dell\'autista.';
     return;
   }
   const b = driverModalBooking.value;
   const lang = confirmLang.value;
   driverModalBooking.value = null;
-  performToggle(b, true, name, lang);
+  performToggle(b, true, name, lang, driverPhone);
 }
 
-async function performToggle(b, willBeConfirmed, driverName, lang) {
+async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) {
   const onMobile = isMobileDevice();
 
-  // Desktop: open the tab synchronously, right when the click happens —
-  // opening it after the `await` below breaks the direct link to the
-  // user's click and browsers silently block it as a popup.
+  // Desktop: open both tabs synchronously, right when the click happens —
+  // opening them after the `await` below breaks the direct link to the
+  // user's click and browsers silently block them as popups.
   // Mobile: skip this — mobile browsers often don't keep a blank tab
-  // alive reliably, so we navigate the current tab instead (below).
+  // alive reliably, so we navigate the current tab instead (below), one at a time.
   const waWindow = (willBeConfirmed && !onMobile) ? window.open('', '_blank') : null;
+  const waDriverWindow = (willBeConfirmed && !onMobile && driverPhone) ? window.open('', '_blank') : null;
 
   try {
     const updates = { confirmed: willBeConfirmed };
@@ -299,6 +334,7 @@ async function performToggle(b, willBeConfirmed, driverName, lang) {
   } catch (e) {
     alert('Errore: impossibile aggiornare lo stato. Riprova.');
     if (waWindow) waWindow.close();
+    if (waDriverWindow) waDriverWindow.close();
     return;
   }
 
@@ -357,6 +393,7 @@ async function performToggle(b, willBeConfirmed, driverName, lang) {
     if (!phone) {
       alert('Numero di telefono mancante: impossibile aprire WhatsApp per la conferma.');
       if (waWindow) waWindow.close();
+      if (waDriverWindow) waDriverWindow.close();
       return;
     }
     const T = WA_CONFIRM_TEXT[lang] || WA_CONFIRM_TEXT.it;
@@ -374,6 +411,32 @@ async function performToggle(b, willBeConfirmed, driverName, lang) {
       waWindow.location.href = url;
     } else {
       window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    // Messaggio separato all'autista, in italiano, con i dati completi della corsa.
+    if (driverPhone) {
+      const driverDigits = driverPhone.replace(/[^\d]/g, '');
+      const dLines = [`🚗 Nuova corsa assegnata — Grifone NCC`, `Ciao ${driverName}, ecco i dati della corsa:`];
+      dLines.push(`Cliente: ${b.name || '—'}`);
+      const clientPhone = cleanPhoneForWa(b);
+      if (clientPhone) dLines.push(`Telefono cliente: +${clientPhone}`);
+      if (b.service) dLines.push(`Servizio: ${b.service}`);
+      if (b.serviceDate) dLines.push(`Data: ${b.serviceDate}`);
+      if (b.hotel) dLines.push(`Destinazione: ${b.hotel}`);
+      if (b.flight) dLines.push(`Volo: ${b.flight}`);
+      if (b.people) dLines.push(`Persone: ${b.people}`);
+      if (b.bags) dLines.push(`Valigie: ${b.bags}`);
+      if (b.details) dLines.push(`Note: ${b.details}`);
+      const dText = encodeURIComponent(dLines.join('\n'));
+      const dUrl = `https://wa.me/${driverDigits}?text=${dText}`;
+      if (onMobile) {
+        // Su mobile non possiamo aprire due tab: il messaggio all'autista
+        // resta pronto, l'admin lo apre a parte se serve.
+      } else if (waDriverWindow) {
+        waDriverWindow.location.href = dUrl;
+      } else {
+        window.open(dUrl, '_blank', 'noopener,noreferrer');
+      }
     }
   }
 }
@@ -516,11 +579,26 @@ async function installApp() {
           <input
             type="text"
             v-model.trim="driverNameInput"
+            @input="onDriverNameInput"
             placeholder="Nome autista"
             class="admin-driver-input"
+            list="admin-drivers-list"
             @keyup.enter="confirmDriverModal"
             autofocus
           >
+          <datalist id="admin-drivers-list">
+            <option v-for="d in driversList" :key="d.name" :value="d.name" />
+          </datalist>
+          <input
+            type="tel"
+            v-model.trim="driverPhoneInput"
+            placeholder="Numero WhatsApp autista (es. +39 333 000 0000)"
+            class="admin-driver-input"
+            @keyup.enter="confirmDriverModal"
+          >
+          <p v-if="driversList.length" class="admin-modal-hint admin-modal-hint-small">
+            {{ driversList.length }} autisti caricati da ncc-fleet — scrivi il nome per compilare il numero automaticamente, o inseriscilo manualmente se non è in elenco.
+          </p>
           <p class="admin-modal-hint">Lingua del messaggio:</p>
           <div class="admin-lang-picker">
             <button
@@ -652,9 +730,9 @@ html,body{background:var(--ink);}
 .admin-password-field input{width:100%; padding-right:44px;}
 .admin-toggle-pw{
   position:absolute; top:50%; right:8px; transform:translateY(-50%);
-  background:none; border:none; color:var(--steel); cursor:pointer;
+  background:none !important; border:none !important; color:var(--brass); cursor:pointer;
   padding:6px; display:flex; align-items:center; justify-content:center;
-  line-height:0;
+  line-height:0; margin-top:0 !important;
 }
 .admin-toggle-pw:hover{color:var(--brass-bright);}
 .admin-login-box button{
@@ -702,6 +780,7 @@ html,body{background:var(--ink);}
 .admin-modal ol{padding-left:20px; display:flex; flex-direction:column; gap:8px; color:var(--paper); font-size:0.88rem; line-height:1.4;}
 .admin-modal .admin-toggle{margin-top:4px;}
 .admin-modal-hint{color:var(--steel); font-size:0.85rem; line-height:1.4;}
+.admin-modal-hint-small{font-size:0.76rem; margin-top:-6px;}
 .admin-driver-input{
   background:var(--surface-2); border:1px solid var(--line); color:var(--paper);
   padding:12px 14px; font-family:'Work Sans',sans-serif; font-size:0.92rem;

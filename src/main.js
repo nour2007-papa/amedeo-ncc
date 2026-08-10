@@ -1,6 +1,4 @@
 import { createApp } from 'vue';
-import App from './App.vue';
-import Admin from './Admin.vue';
 
 // La pagina di gestione prenotazioni si apre solo con questo link segreto:
 // https://amedeo-ncc.vercel.app/#gestione-9f3k2x7q
@@ -51,4 +49,14 @@ if (isAdminRoute) {
   }
 }
 
-createApp(isAdminRoute ? Admin : App).mount('#app');
+// Import dinamico: il sito pubblico e il pannello di gestione finiscono in
+// due file JS separati, così un visitatore normale non scarica mai il
+// codice di Admin.vue (Firebase Auth, tabelle prenotazioni, ecc.) e
+// viceversa — invece di un unico file grande con tutto dentro.
+const loadComponent = isAdminRoute
+  ? import('./Admin.vue')
+  : import('./App.vue');
+
+loadComponent.then((mod) => {
+  createApp(mod.default).mount('#app');
+});

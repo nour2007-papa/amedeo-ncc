@@ -3,7 +3,7 @@
 // strategia network-first con fallback alla cache, così l'app resta
 // utilizzabile anche con connessione debole o assente dopo la prima visita.
 
-const CACHE_NAME = 'gestione-amedeo-v1';
+const CACHE_NAME = 'gestione-amedeo-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

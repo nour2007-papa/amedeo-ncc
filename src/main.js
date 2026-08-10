@@ -9,6 +9,18 @@ const isAdminRoute = window.location.hash.startsWith('#gestione-9f3k2x7q');
 // pagina di gestione: i visitatori del sito pubblico non vedono manifest
 // né service worker, e non viene mai proposto di installare il sito intero.
 if (isAdminRoute) {
+  // Carichiamo lo stile della pagina di gestione come file statico separato
+  // (public/admin.css), NON tramite l'import dinamico di Admin.vue.
+  // Prima capitava che, in certe condizioni (cache del browser, estensioni,
+  // ordine di caricamento dei chunk), lo stile del sito pubblico (App.vue)
+  // finiva applicato anche qui, rompendo il layout della pagina di gestione.
+  // Un <link> statico caricato subito, indipendente dal sistema di chunk
+  // di Vite, elimina questo rischio.
+  const adminCss = document.createElement('link');
+  adminCss.rel = 'stylesheet';
+  adminCss.href = '/admin.css';
+  document.head.appendChild(adminCss);
+
   const manifestLink = document.createElement('link');
   manifestLink.rel = 'manifest';
   manifestLink.href = '/manifest-gestione.json';

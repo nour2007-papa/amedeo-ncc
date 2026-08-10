@@ -1,9 +1,11 @@
 // Service worker per la PWA "Gestione Amedeo".
-// Non precachea file con hash (Vite li rigenera ad ogni build): usa una
-// strategia network-first con fallback alla cache, così l'app resta
-// utilizzabile anche con connessione debole o assente dopo la prima visita.
+// Si occupa SOLO del caricamento della pagina stessa (per un fallback offline
+// di base). Tutti gli altri file — CSS, JS, immagini — non vengono toccati:
+// li carica il browser nel modo normale. Intercettarli tutti (come faceva la
+// versione precedente) rischiava di far fallire un file per un problema di
+// rete transitorio invece di lasciare che il browser ritentasse da solo.
 
-const CACHE_NAME = 'gestione-amedeo-v2';
+const CACHE_NAME = 'gestione-amedeo-v3';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -23,7 +25,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  // Solo la navigazione (apertura/refresh della pagina) passa dal service
+  // worker; CSS, JS, immagini, font ecc. vengono lasciati al browser.
+  if (event.request.mode !== 'navigate') return;
 
   event.respondWith(
     fetch(event.request)
@@ -32,14 +36,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() =>
-        caches.match(event.request).then((cached) => {
-          if (cached) return cached;
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-          return Response.error();
-        })
-      )
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/')))
   );
 });

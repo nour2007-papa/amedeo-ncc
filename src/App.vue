@@ -1144,7 +1144,7 @@ onUnmounted(() => {
   </div>
   <div class="video-gallery video-gallery--single video-gallery--full">
     <video class="promo-video" controls muted loop playsinline preload="metadata">
-      <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786467642/video6041866302149107099.mp4" type="video/mp4">
+      <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786486273/video6041866302149107375.mp4" type="video/mp4">
     </video>
   </div>
 </section>

@@ -76,6 +76,7 @@ const dict = {
     ],
     "nav_services": "Servizi",
     "nav_fleet": "Flotta",
+    "nav_video": "Video",
     "nav_trips": "Viaggi",
     "nav_contact": "Contatti",
     "hero_eyebrow": "Servizio NCC · Milano & Lombardia",
@@ -106,6 +107,8 @@ const dict = {
     "s5_desc": "Viaggi extraurbani da Milano verso ogni città italiana e le principali destinazioni europee.",
     "fleet_title": "Flotta",
     "fleet_tag": "VETTURE MANTENUTE E SANIFICATE PRIMA DI OGNI CORSA.",
+    "video_title": "Guardaci in azione",
+    "video_tag": "SCOPRITE IL SERVIZIO GRIFONE NCC IN VIDEO.",
     "c1": "Berlina executive, 3 passeggeri, ideale per transfer e rappresentanza.",
     "c2": "Il massimo del comfort per ospiti VIP e occasioni di rilievo.",
     "c3": "Van premium fino a 6 passeggeri, perfetto per famiglie e piccoli gruppi.",
@@ -216,6 +219,7 @@ const dict = {
     ],
     "nav_services": "Services",
     "nav_fleet": "Fleet",
+    "nav_video": "Video",
     "nav_trips": "Trips",
     "nav_contact": "Contact",
     "hero_eyebrow": "Chauffeur Service · Milan & Lombardy",
@@ -246,6 +250,8 @@ const dict = {
     "s5_desc": "Intercity travel from Milan to any Italian city and major European destinations.",
     "fleet_title": "Fleet",
     "fleet_tag": "VEHICLES SERVICED AND SANITIZED BEFORE EVERY RIDE.",
+    "video_title": "Watch us in action",
+    "video_tag": "DISCOVER THE GRIFONE NCC SERVICE ON VIDEO.",
     "c1": "Executive sedan, 3 passengers, ideal for transfers and corporate travel.",
     "c2": "The utmost comfort for VIP guests and important occasions.",
     "c3": "Premium van, up to 6 passengers, perfect for families and small groups.",
@@ -356,6 +362,7 @@ const dict = {
     ],
     "nav_services": "خدماتنا",
     "nav_fleet": "الأسطول",
+    "nav_video": "فيديو",
     "nav_trips": "الرحلات",
     "nav_contact": "تواصل معنا",
     "hero_eyebrow": "خدمة سائق خاص · ميلانو ولومبارديا",
@@ -386,6 +393,8 @@ const dict = {
     "s5_desc": "رحلات من ميلانو إلى أي مدينة إيطالية وأهم الوجهات الأوروبية.",
     "fleet_title": "الأسطول",
     "fleet_tag": "سيارات مصانة ومعقّمة قبل كل رحلة.",
+    "video_title": "شاهدونا في الخدمة",
+    "video_tag": "اكتشفوا خدمة جريفوني NCC بالفيديو.",
     "c1": "سيارة تنفيذية لثلاثة ركاب، مثالية للنقل والتمثيل التجاري.",
     "c2": "أقصى درجات الراحة لكبار الضيوف والمناسبات المهمة.",
     "c3": "فان فاخر حتى 6 ركاب، مثالي للعائلات والمجموعات الصغيرة.",
@@ -1030,6 +1039,7 @@ onUnmounted(() => {
     <div class="nav-links" :class="{ active: navOpen }">
       <a href="#servizi" @click="navOpen=false">{{ t.nav_services }}</a>
       <a href="#flotta" @click="navOpen=false">{{ t.nav_fleet }}</a>
+      <a href="#video" @click="navOpen=false">{{ t.nav_video }}</a>
       <a href="#viaggi" @click="navOpen=false">{{ t.nav_trips }}</a>
       <a href="#contatti" @click="navOpen=false">{{ t.nav_contact }}</a>
     </div>
@@ -1124,6 +1134,24 @@ onUnmounted(() => {
         <button class="car-btn" @click="selectCar(c.name)">{{ t.btn_book_car }}</button>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="section wrap" id="video">
+  <div class="section-head reveal" v-reveal>
+    <h2>{{ t.video_title }}</h2>
+    <div class="tag mono">{{ t.video_tag }}</div>
+  </div>
+  <div class="video-gallery">
+    <video class="promo-video" controls muted loop playsinline preload="metadata">
+      <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786467565/video6041866302149107098.mp4" type="video/mp4">
+    </video>
+    <video class="promo-video" controls muted loop playsinline preload="metadata">
+      <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786467642/video6041866302149107099.mp4" type="video/mp4">
+    </video>
+    <video class="promo-video" controls muted loop playsinline preload="metadata">
+      <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786467928/video6041866302149107097.mp4" type="video/mp4">
+    </video>
   </div>
 </section>
 
@@ -1241,6 +1269,7 @@ onUnmounted(() => {
       <h4>{{ t.foot_nav }}</h4>
       <a href="#servizi">{{ t.nav_services }}</a>
       <a href="#flotta">{{ t.nav_fleet }}</a>
+      <a href="#video">{{ t.nav_video }}</a>
       <a href="#viaggi">{{ t.nav_trips }}</a>
       <a href="#contatti">{{ t.nav_contact }}</a>
     </div>
@@ -1559,6 +1588,21 @@ onUnmounted(() => {
     .payment-badges{grid-template-columns:1fr 1fr;gap:6px;}
     .pay-card{padding:8px 10px;font-size:0.72rem;}
     .pay-card svg{width:18px;height:18px;}
+  }
+
+  /* VIDEO GALLERY */
+  .video-gallery{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;
+  }
+  .promo-video{
+    width:100%;aspect-ratio:9/16;object-fit:cover;
+    background:var(--surface);border:1px solid var(--line);border-radius:4px;
+    transition:border-color .25s;
+  }
+  .promo-video:hover{border-color:var(--brass);}
+  @media(max-width:760px){
+    .video-gallery{grid-template-columns:1fr;}
+    .promo-video{aspect-ratio:16/9;}
   }
 
   /* TESTIMONIALS */

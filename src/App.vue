@@ -1142,15 +1142,9 @@ onUnmounted(() => {
     <h2>{{ t.video_title }}</h2>
     <div class="tag mono">{{ t.video_tag }}</div>
   </div>
-  <div class="video-gallery">
-    <video class="promo-video" controls muted loop playsinline preload="metadata">
-      <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786467565/video6041866302149107098.mp4" type="video/mp4">
-    </video>
+  <div class="video-gallery video-gallery--single">
     <video class="promo-video" controls muted loop playsinline preload="metadata">
       <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786467642/video6041866302149107099.mp4" type="video/mp4">
-    </video>
-    <video class="promo-video" controls muted loop playsinline preload="metadata">
-      <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786467928/video6041866302149107097.mp4" type="video/mp4">
     </video>
   </div>
 </section>
@@ -1593,6 +1587,9 @@ onUnmounted(() => {
   /* VIDEO GALLERY */
   .video-gallery{
     display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;
+  }
+  .video-gallery--single{
+    grid-template-columns:1fr;max-width:420px;margin:0 auto;
   }
   .promo-video{
     width:100%;aspect-ratio:9/16;object-fit:cover;

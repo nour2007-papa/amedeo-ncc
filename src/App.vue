@@ -1,8 +1,9 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
+import BookingForm from './BookingForm.vue';
 
 /* =========================================================
    Firebase — saves each booking request to Firestore so it
@@ -19,28 +20,8 @@ try {
   console.warn('Firebase non configurato:', e);
 }
 
-async function saveBookingToFirestore(formSnapshot) {
-  if (!db) return;
-  try {
-    await addDoc(collection(db, 'bookings'), {
-      name: formSnapshot.name,
-      country: formSnapshot.country,
-      phone: formSnapshot.phone,
-      service: formSnapshot.service,
-      serviceDate: formSnapshot.serviceDate || null,
-      people: formSnapshot.people || null,
-      flight: formSnapshot.flight || null,
-      hotel: formSnapshot.hotel || null,
-      bags: formSnapshot.bags || null,
-      details: formSnapshot.details || null,
-      lang: formSnapshot.lang || 'it',
-      confirmed: false,
-      createdAt: serverTimestamp(),
-    });
-  } catch (e) {
-    console.warn('Impossibile salvare la prenotazione su Firestore:', e);
-  }
-}
+/* Il salvataggio su Firestore ora avviene dentro BookingForm.vue
+   (riceve `db` come prop) — questa funzione non serve più qui. */
 
 /* =========================================================
    i18n dictionary (IT / EN / AR) — ported 1:1 from the
@@ -478,207 +459,6 @@ const dict = {
   }
 };
 
-/* Phone country-code list for the booking form */
-const countryCodes = [
-  { code: '+966', name: 'السعودية', iso2: 'sa' },
-  { code: '+971', name: 'الإمارات', iso2: 'ae' },
-  { code: '+965', name: 'الكويت', iso2: 'kw' },
-  { code: '+974', name: 'قطر', iso2: 'qa' },
-  { code: '+973', name: 'البحرين', iso2: 'bh' },
-  { code: '+968', name: 'عمان', iso2: 'om' },
-  { code: '+20', name: 'مصر', iso2: 'eg' },
-  { code: '+962', name: 'الأردن', iso2: 'jo' },
-  { code: '+961', name: 'لبنان', iso2: 'lb' },
-  { code: '+963', name: 'سوريا', iso2: 'sy' },
-  { code: '+964', name: 'العراق', iso2: 'iq' },
-  { code: '+967', name: 'اليمن', iso2: 'ye' },
-  { code: '+970', name: 'فلسطين', iso2: 'ps' },
-  { code: '+212', name: 'المغرب', iso2: 'ma' },
-  { code: '+213', name: 'الجزائر', iso2: 'dz' },
-  { code: '+216', name: 'تونس', iso2: 'tn' },
-  { code: '+218', name: 'ليبيا', iso2: 'ly' },
-  { code: '+249', name: 'السودان', iso2: 'sd' },
-  { code: '+252', name: 'الصومال', iso2: 'so' },
-  { code: '+222', name: 'موريتانيا', iso2: 'mr' },
-  { code: '+269', name: 'جزر القمر', iso2: 'km' },
-  { code: '+253', name: 'جيبوتي', iso2: 'dj' },
-  { code: '+39', name: 'Italia', iso2: 'it' },
-  { code: '+41', name: 'Svizzera', iso2: 'ch' },
-  { code: '+33', name: 'Francia', iso2: 'fr' },
-  { code: '+43', name: 'Austria', iso2: 'at' },
-  { code: '+386', name: 'Slovenia', iso2: 'si' },
-  { code: '+378', name: 'San Marino', iso2: 'sm' },
-  { code: '+379', name: 'Vaticano', iso2: 'va' },
-  { code: '+356', name: 'Malta', iso2: 'mt' },
-  { code: '+385', name: 'Croazia', iso2: 'hr' },
-  { code: '+30', name: 'Grecia', iso2: 'gr' },
-  { code: '+377', name: 'Monaco', iso2: 'mc' },
-  { code: '+355', name: 'Albania', iso2: 'al' },
-  { code: '+376', name: 'Andorra', iso2: 'ad' },
-  { code: '+375', name: 'Belarus', iso2: 'by' },
-  { code: '+32', name: 'Belgio', iso2: 'be' },
-  { code: '+387', name: 'Bosnia', iso2: 'ba' },
-  { code: '+359', name: 'Bulgaria', iso2: 'bg' },
-  { code: '+357', name: 'Cipro', iso2: 'cy' },
-  { code: '+420', name: 'Rep. Ceca', iso2: 'cz' },
-  { code: '+45', name: 'Danimarca', iso2: 'dk' },
-  { code: '+372', name: 'Estonia', iso2: 'ee' },
-  { code: '+358', name: 'Finlandia', iso2: 'fi' },
-  { code: '+49', name: 'Germania', iso2: 'de' },
-  { code: '+36', name: 'Ungheria', iso2: 'hu' },
-  { code: '+354', name: 'Islanda', iso2: 'is' },
-  { code: '+353', name: 'Irlanda', iso2: 'ie' },
-  { code: '+383', name: 'Kosovo', iso2: 'xk' },
-  { code: '+371', name: 'Lettonia', iso2: 'lv' },
-  { code: '+423', name: 'Liechtenstein', iso2: 'li' },
-  { code: '+370', name: 'Lituania', iso2: 'lt' },
-  { code: '+352', name: 'Lussemburgo', iso2: 'lu' },
-  { code: '+373', name: 'Moldavia', iso2: 'md' },
-  { code: '+382', name: 'Montenegro', iso2: 'me' },
-  { code: '+31', name: 'Paesi Bassi', iso2: 'nl' },
-  { code: '+389', name: 'N. Macedonia', iso2: 'mk' },
-  { code: '+47', name: 'Norvegia', iso2: 'no' },
-  { code: '+48', name: 'Polonia', iso2: 'pl' },
-  { code: '+351', name: 'Portogallo', iso2: 'pt' },
-  { code: '+40', name: 'Romania', iso2: 'ro' },
-  { code: '+7', name: 'Russia', iso2: 'ru' },
-  { code: '+381', name: 'Serbia', iso2: 'rs' },
-  { code: '+421', name: 'Slovacchia', iso2: 'sk' },
-  { code: '+34', name: 'Spagna', iso2: 'es' },
-  { code: '+46', name: 'Svezia', iso2: 'se' },
-  { code: '+380', name: 'Ucraina', iso2: 'ua' },
-  { code: '+44', name: 'Regno Unito', iso2: 'gb' },
-  { code: '+93', name: 'Afghanistan', iso2: 'af' },
-  { code: '+244', name: 'Angola', iso2: 'ao' },
-  { code: '+1268', name: 'Antigua', iso2: 'ag' },
-  { code: '+54', name: 'Argentina', iso2: 'ar' },
-  { code: '+374', name: 'Armenia', iso2: 'am' },
-  { code: '+61', name: 'Australia', iso2: 'au' },
-  { code: '+994', name: 'Azerbaijan', iso2: 'az' },
-  { code: '+1242', name: 'Bahamas', iso2: 'bs' },
-  { code: '+880', name: 'Bangladesh', iso2: 'bd' },
-  { code: '+1246', name: 'Barbados', iso2: 'bb' },
-  { code: '+501', name: 'Belize', iso2: 'bz' },
-  { code: '+229', name: 'Benin', iso2: 'bj' },
-  { code: '+975', name: 'Bhutan', iso2: 'bt' },
-  { code: '+591', name: 'Bolivia', iso2: 'bo' },
-  { code: '+267', name: 'Botswana', iso2: 'bw' },
-  { code: '+55', name: 'Brasile', iso2: 'br' },
-  { code: '+673', name: 'Brunei', iso2: 'bn' },
-  { code: '+226', name: 'Burkina Faso', iso2: 'bf' },
-  { code: '+257', name: 'Burundi', iso2: 'bi' },
-  { code: '+855', name: 'Cambodia', iso2: 'kh' },
-  { code: '+237', name: 'Cameroon', iso2: 'cm' },
-  { code: '+1', name: 'Canada', iso2: 'ca' },
-  { code: '+238', name: 'Cape Verde', iso2: 'cv' },
-  { code: '+236', name: 'Central African Rep.', iso2: 'cf' },
-  { code: '+235', name: 'Chad', iso2: 'td' },
-  { code: '+56', name: 'Chile', iso2: 'cl' },
-  { code: '+86', name: 'Cina', iso2: 'cn' },
-  { code: '+57', name: 'Colombia', iso2: 'co' },
-  { code: '+242', name: 'Congo', iso2: 'cg' },
-  { code: '+243', name: 'Congo RD', iso2: 'cd' },
-  { code: '+506', name: 'Costa Rica', iso2: 'cr' },
-  { code: '+53', name: 'Cuba', iso2: 'cu' },
-  { code: '+1767', name: 'Dominica', iso2: 'dm' },
-  { code: '+1809', name: 'Rep. Dominicana', iso2: 'do' },
-  { code: '+593', name: 'Ecuador', iso2: 'ec' },
-  { code: '+503', name: 'El Salvador', iso2: 'sv' },
-  { code: '+240', name: 'Guinea Equatoriale', iso2: 'gq' },
-  { code: '+291', name: 'Eritrea', iso2: 'er' },
-  { code: '+268', name: 'Eswatini', iso2: 'sz' },
-  { code: '+251', name: 'Etiopia', iso2: 'et' },
-  { code: '+679', name: 'Fiji', iso2: 'fj' },
-  { code: '+241', name: 'Gabon', iso2: 'ga' },
-  { code: '+220', name: 'Gambia', iso2: 'gm' },
-  { code: '+995', name: 'Georgia', iso2: 'ge' },
-  { code: '+233', name: 'Ghana', iso2: 'gh' },
-  { code: '+1473', name: 'Grenada', iso2: 'gd' },
-  { code: '+502', name: 'Guatemala', iso2: 'gt' },
-  { code: '+224', name: 'Guinea', iso2: 'gn' },
-  { code: '+245', name: 'Guinea-Bissau', iso2: 'gw' },
-  { code: '+592', name: 'Guyana', iso2: 'gy' },
-  { code: '+509', name: 'Haiti', iso2: 'ht' },
-  { code: '+504', name: 'Honduras', iso2: 'hn' },
-  { code: '+852', name: 'Hong Kong', iso2: 'hk' },
-  { code: '+91', name: 'India', iso2: 'in' },
-  { code: '+62', name: 'Indonesia', iso2: 'id' },
-  { code: '+98', name: 'Iran', iso2: 'ir' },
-  { code: '+972', name: 'Israele', iso2: 'il' },
-  { code: '+1876', name: 'Giamaica', iso2: 'jm' },
-  { code: '+81', name: 'Giappone', iso2: 'jp' },
-  { code: '+7', name: 'Kazakhstan', iso2: 'kz' },
-  { code: '+254', name: 'Kenya', iso2: 'ke' },
-  { code: '+686', name: 'Kiribati', iso2: 'ki' },
-  { code: '+850', name: 'Corea del Nord', iso2: 'kp' },
-  { code: '+82', name: 'Corea del Sud', iso2: 'kr' },
-  { code: '+996', name: 'Kyrgyzstan', iso2: 'kg' },
-  { code: '+856', name: 'Laos', iso2: 'la' },
-  { code: '+266', name: 'Lesotho', iso2: 'ls' },
-  { code: '+231', name: 'Liberia', iso2: 'lr' },
-  { code: '+853', name: 'Macao', iso2: 'mo' },
-  { code: '+261', name: 'Madagascar', iso2: 'mg' },
-  { code: '+265', name: 'Malawi', iso2: 'mw' },
-  { code: '+60', name: 'Malesia', iso2: 'my' },
-  { code: '+960', name: 'Maldive', iso2: 'mv' },
-  { code: '+223', name: 'Mali', iso2: 'ml' },
-  { code: '+692', name: 'Marshall', iso2: 'mh' },
-  { code: '+230', name: 'Mauritius', iso2: 'mu' },
-  { code: '+52', name: 'Messico', iso2: 'mx' },
-  { code: '+691', name: 'Micronesia', iso2: 'fm' },
-  { code: '+976', name: 'Mongolia', iso2: 'mn' },
-  { code: '+258', name: 'Mozambico', iso2: 'mz' },
-  { code: '+95', name: 'Myanmar', iso2: 'mm' },
-  { code: '+264', name: 'Namibia', iso2: 'na' },
-  { code: '+674', name: 'Nauru', iso2: 'nr' },
-  { code: '+977', name: 'Nepal', iso2: 'np' },
-  { code: '+64', name: 'Nuova Zelanda', iso2: 'nz' },
-  { code: '+505', name: 'Nicaragua', iso2: 'ni' },
-  { code: '+227', name: 'Niger', iso2: 'ne' },
-  { code: '+234', name: 'Nigeria', iso2: 'ng' },
-  { code: '+92', name: 'Pakistan', iso2: 'pk' },
-  { code: '+680', name: 'Palau', iso2: 'pw' },
-  { code: '+507', name: 'Panama', iso2: 'pa' },
-  { code: '+675', name: 'Papua N.G.', iso2: 'pg' },
-  { code: '+595', name: 'Paraguay', iso2: 'py' },
-  { code: '+51', name: 'Perù', iso2: 'pe' },
-  { code: '+63', name: 'Filippine', iso2: 'ph' },
-  { code: '+250', name: 'Rwanda', iso2: 'rw' },
-  { code: '+1869', name: 'Saint Kitts', iso2: 'kn' },
-  { code: '+1758', name: 'Saint Lucia', iso2: 'lc' },
-  { code: '+1784', name: 'Saint Vincent', iso2: 'vc' },
-  { code: '+685', name: 'Samoa', iso2: 'ws' },
-  { code: '+239', name: 'São Tomé', iso2: 'st' },
-  { code: '+221', name: 'Senegal', iso2: 'sn' },
-  { code: '+248', name: 'Seychelles', iso2: 'sc' },
-  { code: '+232', name: 'Sierra Leone', iso2: 'sl' },
-  { code: '+65', name: 'Singapore', iso2: 'sg' },
-  { code: '+677', name: 'Solomon', iso2: 'sb' },
-  { code: '+27', name: 'Sudafrica', iso2: 'za' },
-  { code: '+211', name: 'Sud Sudan', iso2: 'ss' },
-  { code: '+94', name: 'Sri Lanka', iso2: 'lk' },
-  { code: '+597', name: 'Suriname', iso2: 'sr' },
-  { code: '+886', name: 'Taiwan', iso2: 'tw' },
-  { code: '+992', name: 'Tagikistan', iso2: 'tj' },
-  { code: '+255', name: 'Tanzania', iso2: 'tz' },
-  { code: '+66', name: 'Thailandia', iso2: 'th' },
-  { code: '+670', name: 'Timor Est', iso2: 'tl' },
-  { code: '+228', name: 'Togo', iso2: 'tg' },
-  { code: '+676', name: 'Tonga', iso2: 'to' },
-  { code: '+1868', name: 'Trinidad', iso2: 'tt' },
-  { code: '+90', name: 'Turchia', iso2: 'tr' },
-  { code: '+993', name: 'Turkmenistan', iso2: 'tm' },
-  { code: '+688', name: 'Tuvalu', iso2: 'tv' },
-  { code: '+256', name: 'Uganda', iso2: 'ug' },
-  { code: '+1', name: 'Stati Uniti', iso2: 'us' },
-  { code: '+598', name: 'Uruguay', iso2: 'uy' },
-  { code: '+998', name: 'Uzbekistan', iso2: 'uz' },
-  { code: '+678', name: 'Vanuatu', iso2: 'vu' },
-  { code: '+58', name: 'Venezuela', iso2: 've' },
-  { code: '+84', name: 'Vietnam', iso2: 'vn' },
-  { code: '+260', name: 'Zambia', iso2: 'zm' },
-  { code: '+263', name: 'Zimbabwe', iso2: 'zw' },
-];
 
 /* =========================================================
    Structured content — services / fleet / trips driven by
@@ -774,18 +554,27 @@ function imgFallback(event) {
 /* =========================================================
    Hero search box → prefills the booking form below
    ========================================================= */
-const serviceFormValues = ['Transfer Aeroporto', 'Rappresentanza', 'Tour con guida', 'Eventi & Cerimonie', 'Lunga percorrenza'];
+/* Mappa i 5 servizi (stessi id di bookingConstants.js nel pannello
+   fleet). L'array serve solo a generare le 5 <option> del select di
+   ricerca nell'hero — le etichette restano quelle di t['sN_title']. */
+const SERVICE_ID_BY_INDEX = ['aeroporto', 'business', 'milano', 'evento', 'intercity'];
+const serviceFormValues = SERVICE_ID_BY_INDEX;
+const WHATSAPP_NUMBER = '393520003122';
 const search = reactive({ from: '', to: '', date: '', serviceIndex: 0 });
 
+/* Oggetto "prefill" passato a <BookingForm>: ogni volta che viene
+   riassegnato (oggetto nuovo), BookingForm lo recepisce e aggiorna
+   i suoi campi interni — anche se si sceglie due volte la stessa città. */
+const bookingPrefill = ref(null);
+
 function submitSearch() {
-  form.service = serviceFormValues[search.serviceIndex] || '';
-  if (search.to) form.hotel = search.to;
-  if (search.date) form.serviceDate = search.date;
-
-  const parts = [];
-  if (search.from) parts.push(`${t.value.note_from_prefix}: ${search.from}`);
-  if (parts.length) form.details = parts.join(' | ');
-
+  bookingPrefill.value = {
+    tipoServizio: SERVICE_ID_BY_INDEX[search.serviceIndex] || 'altro',
+    destinazione: search.to || undefined,
+    dataOra: search.date ? `${search.date}T00:00` : undefined, // il campo è datetime-local
+    zona: search.from || undefined,
+    note: search.from ? `${t.value.note_from_prefix}: ${search.from}` : undefined,
+  };
   scrollToContact();
 }
 
@@ -793,102 +582,24 @@ function scrollToContact() {
   document.getElementById('contatti')?.scrollIntoView({ behavior: 'smooth' });
 }
 
-/* =========================================================
-   Booking form + WhatsApp handoff
-   ========================================================= */
-const form = reactive({
-  name: '',
-  country: '+39',
-  phone: '',
-  service: '',
-  serviceDate: '',
-  people: '',
-  flight: '',
-  hotel: '',
-  bags: '',
-  details: '',
-  gdpr: false,
-  lastAutoNote: null,
-  website: '', // honeypot — must stay empty
-});
-const showSuccess = ref(false);
-
-/* =========================================================
-   Custom country-code dropdown (replaces the native <select>).
-   Native <select> options can't show flag images at all, and the
-   emoji-flag fallback rendered inconsistently on Windows — so this
-   builds our own popup list with real flag images (flagcdn.com).
-   ========================================================= */
-const countryOpen = ref(false);
-const countrySearch = ref('');
-const selectedCountryIso2 = ref('it'); // matches the default form.country = '+39'
-const countrySelectRef = ref(null);
-
-const selectedCountry = computed(() =>
-  countryCodes.find(c => c.iso2 === selectedCountryIso2.value) ||
-  countryCodes.find(c => c.code === form.country) ||
-  countryCodes[0]
-);
-
-const filteredCountries = computed(() => {
-  const q = countrySearch.value.trim().toLowerCase();
-  if (!q) return countryCodes;
-  return countryCodes.filter(c =>
-    c.name.toLowerCase().includes(q) || c.code.includes(q)
-  );
-});
-
-function toggleCountryDropdown() {
-  countryOpen.value = !countryOpen.value;
-  if (countryOpen.value) countrySearch.value = '';
-}
-function selectCountry(c) {
-  form.country = c.code;
-  selectedCountryIso2.value = c.iso2;
-  countryOpen.value = false;
-}
-function handleCountryClickOutside(event) {
-  if (countryOpen.value && countrySelectRef.value && !countrySelectRef.value.contains(event.target)) {
-    countryOpen.value = false;
-  }
-}
-onMounted(() => document.addEventListener('click', handleCountryClickOutside));
-onUnmounted(() => document.removeEventListener('click', handleCountryClickOutside));
-
-function setAutoNote(note) {
-  let text = form.details;
-  if (form.lastAutoNote && text.endsWith(form.lastAutoNote)) {
-    text = text.slice(0, text.length - form.lastAutoNote.length).trim();
-    if (text.endsWith('|')) text = text.slice(0, -1).trim();
-  }
-  form.details = text ? `${text} | ${note}` : note;
-  form.lastAutoNote = note;
-}
-
 function selectCar(carName) {
-  setAutoNote(`${t.value.note_car_prefix}: ${carName}`);
+  bookingPrefill.value = { note: `${t.value.note_car_prefix}: ${carName}` };
   scrollToContact();
 }
 
 function selectTrip(cityName) {
-  form.service = 'Lunga percorrenza';
-  form.hotel = cityName;
-  setAutoNote(`${t.value.note_trip_prefix}: ${cityName}`);
+  bookingPrefill.value = { tipoServizio: 'intercity', destinazione: cityName, note: `${t.value.note_trip_prefix}: ${cityName}` };
   scrollToContact();
 }
 
 function selectOtherItalyTrip() {
-  form.service = 'Lunga percorrenza';
-  setAutoNote(t.value.note_other_italy);
+  bookingPrefill.value = { tipoServizio: 'intercity', note: t.value.note_other_italy };
   scrollToContact();
-  nextTick(() => document.getElementById('f-hotel')?.focus());
 }
 
 function selectCustomTrip() {
-  form.service = 'Lunga percorrenza';
-  setAutoNote(t.value.note_custom);
+  bookingPrefill.value = { tipoServizio: 'intercity', note: t.value.note_custom };
   scrollToContact();
-  nextTick(() => document.getElementById('f-hotel')?.focus());
 }
 
 function onCardAction(trip) {
@@ -897,56 +608,8 @@ function onCardAction(trip) {
   return selectTrip(trip.name);
 }
 
-const WHATSAPP_NUMBER = '393520003122';
-
-function sendBookingToWhatsApp() {
-  // Honeypot tripped: a bot filled the hidden field. Reset the form and
-  // stop here — no WhatsApp message, no visible error (don't tip the bot
-  // off that it was detected), and nothing gets saved to Firestore.
-  if (form.website) {
-    Object.assign(form, {
-      name: '', country: '+39', phone: '', service: '', serviceDate: '', people: '',
-      flight: '', hotel: '', bags: '', details: '', gdpr: false,
-      lastAutoNote: null, website: '',
-    });
-    selectedCountryIso2.value = 'it';
-    return;
-  }
-
-  const lines = [
-    `📋 Nuova richiesta di prenotazione — Grifone NCC`,
-    `Nome: ${form.name}`,
-    `Telefono: ${form.country} ${form.phone}`,
-    `Servizio: ${form.service}`,
-  ];
-  if (form.serviceDate) lines.push(`Data: ${form.serviceDate}`);
-  if (form.people) lines.push(`Numero di persone: ${form.people}`);
-  if (form.flight) lines.push(`Numero di volo: ${form.flight}`);
-  if (form.hotel) lines.push(`Hotel/destinazione: ${form.hotel}`);
-  if (form.bags) lines.push(`Valigie: ${form.bags}`);
-  if (form.details) lines.push(`Note: ${form.details}`);
-
-  const text = encodeURIComponent(lines.join('\n'));
-  showSuccess.value = true;
-
-  // Save to Firestore in the background (for the admin dashboard) without
-  // blocking or delaying the WhatsApp handoff below — if it fails (e.g. no
-  // internet to Firebase, or Firebase not yet configured), the booking
-  // request still reaches WhatsApp normally.
-  saveBookingToFirestore({ ...form, lang: currentLang.value });
-
-  window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
-
-  Object.assign(form, {
-    name: '', country: '+39', phone: '', service: '', serviceDate: '', people: '',
-    flight: '', hotel: '', bags: '', details: '', gdpr: false,
-    lastAutoNote: null, website: '',
-  });
-  selectedCountryIso2.value = 'it';
-  setTimeout(() => (showSuccess.value = false), 4000);
-}
-
 const waDefaultLink = computed(() => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(t.value.wa_message)}`);
+
 
 /* =========================================================
    Privacy modal + cookie banner
@@ -1175,53 +838,7 @@ onUnmounted(() => {
     <div class="tag mono">{{ t.contact_tag }}</div>
   </div>
   <div class="contact-grid">
-    <form id="booking-form" @submit.prevent="sendBookingToWhatsApp">
-      <!-- Honeypot anti-spam: real visitors never see or fill this field.
-           Bots that blindly auto-fill every input on the page usually do,
-           so if it has a value we silently drop the submission. -->
-      <div class="hp-field" aria-hidden="true">
-        <label for="f-website">Website</label>
-        <input type="text" id="f-website" v-model="form.website" tabindex="-1" autocomplete="off">
-      </div>
-      <div v-if="showSuccess" class="form-alert" style="display:block;">{{ t.f_success_alert }}</div>
-      <input type="text" v-model.trim="form.name" :placeholder="t.f_name" required maxlength="60">
-      <div class="phone-row">
-        <div class="country-select" ref="countrySelectRef" :class="{ open: countryOpen }">
-          <button type="button" class="country-select-btn" @click="toggleCountryDropdown" :aria-expanded="countryOpen" aria-haspopup="listbox">
-            <img :src="`https://flagcdn.com/24x18/${selectedCountry.iso2}.png`" :alt="selectedCountry.name" width="22" height="16" class="country-flag">
-            <span>{{ selectedCountry.code }}</span>
-            <svg class="country-chevron" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="countryOpen" class="country-dropdown" role="listbox">
-            <input type="text" v-model="countrySearch" class="country-search" :placeholder="t.f_country_search" @click.stop>
-            <div class="country-list">
-              <button type="button" v-for="c in filteredCountries" :key="c.code + c.iso2" class="country-item" role="option" @click="selectCountry(c)">
-                <img :src="`https://flagcdn.com/24x18/${c.iso2}.png`" :alt="c.name" width="22" height="16" loading="lazy">
-                <span class="country-item-name">{{ c.name }}</span>
-                <span class="country-item-code">{{ c.code }}</span>
-              </button>
-              <div v-if="filteredCountries.length === 0" class="country-empty">{{ t.f_country_none }}</div>
-            </div>
-          </div>
-        </div>
-        <input type="tel" id="f-phone" v-model.trim="form.phone" :placeholder="t.f_phone" required maxlength="20">
-      </div>
-      <select v-model="form.service" required>
-        <option value="" disabled>{{ t.f_service_placeholder }}</option>
-        <option v-for="(v,i) in serviceFormValues" :key="v" :value="v">{{ t['s'+(i+1)+'_title'] }}</option>
-      </select>
-      <input type="number" v-model="form.people" min="1" max="20" :placeholder="t.f_people">
-      <input type="text" v-model.trim="form.flight" :placeholder="t.f_flight" maxlength="30">
-      <input type="text" id="f-hotel" v-model.trim="form.hotel" :placeholder="t.f_hotel" maxlength="100">
-      <input type="date" id="f-service-date" v-model="form.serviceDate" :aria-label="t.f_service_date">
-      <input type="number" v-model="form.bags" min="0" max="30" :placeholder="t.f_bags">
-      <textarea v-model="form.details" :placeholder="t.f_details" maxlength="500"></textarea>
-      <label class="gdpr-box">
-        <input type="checkbox" v-model="form.gdpr" required>
-        <span v-html="t.f_gdpr"></span>
-      </label>
-      <button type="submit" class="btn btn-primary">{{ t.f_submit }}</button>
-    </form>
+    <BookingForm :db="db" whatsapp-number="393520003122" :lang="currentLang" brand-name="Grifone NCC" :prefill="bookingPrefill" />
     <div>
       <div class="info-line"><span>{{ t.i_phone }}</span><span><a href="tel:+393520003122" style="color:var(--brass-bright);text-decoration:none;">+39 352 000 3122</a></span></div>
       <div class="info-line"><span>{{ t.i_whatsapp }}</span><span><a href="https://wa.me/393520003122" target="_blank" rel="noopener" style="color:var(--brass-bright);text-decoration:none;">+39 352 000 3122</a></span></div>

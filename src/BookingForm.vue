@@ -76,7 +76,8 @@ const UI = {
   },
 };
 const t = computed(() => UI[props.lang] || UI.ar);
-const label = (item) => `${item.ar} | ${item.it}`;
+// Mostra il testo bilingue solo per l'arabo; per IT/EN mostra solo la lingua del sito.
+const label = (item) => (props.lang === 'ar' ? `${item.ar} | ${item.it}` : (item[props.lang] || item.it));
 
 /* ---------- Lista prefissi telefonici + bandiere (invariata dall'originale) ---------- */
 const countryCodes = [

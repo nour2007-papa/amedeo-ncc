@@ -404,7 +404,7 @@ async function saveToFirestore(snapshot) {
   }
 }
 
-function submitBooking() {
+async function submitBooking() {
   // honeypot: bot rilevato → reset silenzioso, nessun invio
   if (form.website) { resetForm(); return; }
   if (!form.name || !form.phone || !form.gdpr) return;
@@ -430,7 +430,9 @@ function submitBooking() {
   const text = encodeURIComponent(lines.join('\n'));
   showSuccess.value = true;
 
-  saveToFirestore({ ...form, note: note.value });
+  // ننتظر الحفظ في Firestore يخلص قبل ما نحول العميل لواتساب،
+  // عشان المتصفح (خصوصًا الموبايل) ميلغيش الطلب لما تتغير الصفحة
+  await saveToFirestore({ ...form, note: note.value });
   emit('sent', { ...form, note: note.value });
 
   window.location.href = `https://wa.me/${props.whatsappNumber}?text=${text}`;

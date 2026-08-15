@@ -51,24 +51,32 @@ const LINGUE = [
   { id: 'altro', ar: 'أخرى', it: 'Altro', en: 'Other' },
 ];
 
+/* ---------- Titolo/appellativo del cliente (Sig./Sig.ra/Sig.na) ---------- */
+const TITOLI = [
+  { id: '', ar: '—', it: '—', en: '—' },
+  { id: 'sig', ar: 'السيد', it: 'Sig.', en: 'Mr.' },
+  { id: 'sigra', ar: 'السيدة', it: 'Sig.ra', en: 'Mrs.' },
+  { id: 'signa', ar: 'الآنسة', it: 'Sig.na', en: 'Miss' },
+];
+
 /* ---------- Testi UI nelle 3 lingue ---------- */
 const UI = {
   ar: {
-    title: 'حجز جديد', name: 'اسم العميل', whatsapp: 'رقم WhatsApp',
+    title: 'حجز جديد', titolo: 'اللقب', name: 'اسم العميل', whatsapp: 'رقم WhatsApp',
     lingua: 'اللغة', tipoServizio: 'نوع الخدمة', dataOra: 'تاريخ ووقت الاستلام',
     zona: 'نقطة الاستلام', destinazione: 'الوجهة', volo: 'رقم الرحلة',
     passeggeri: 'الركاب', bagagli: 'الحقائب', gdpr: 'أوافق على معالجة بياناتي لغرض الرد على طلب الحجز',
     submit: 'إرسال عبر واتساب', success: 'تم إرسال الطلب بنجاح ✅',
   },
   it: {
-    title: 'Nuova Prenotazione', name: 'Nome cliente', whatsapp: 'Numero WhatsApp',
+    title: 'Nuova Prenotazione', titolo: 'Titolo', name: 'Nome cliente', whatsapp: 'Numero WhatsApp',
     lingua: 'Lingua', tipoServizio: 'Tipo servizio', dataOra: 'Data e ora ritiro',
     zona: 'Punto di ritiro', destinazione: 'Destinazione', volo: 'Numero volo',
     passeggeri: 'Passeggeri', bagagli: 'Bagagli', gdpr: 'Acconsento al trattamento dei dati per rispondere alla richiesta di prenotazione',
     submit: 'Invia su WhatsApp', success: 'Richiesta inviata con successo ✅',
   },
   en: {
-    title: 'New Booking', name: 'Client name', whatsapp: 'WhatsApp number',
+    title: 'New Booking', titolo: 'Title', name: 'Client name', whatsapp: 'WhatsApp number',
     lingua: 'Language', tipoServizio: 'Service type', dataOra: 'Pickup date & time',
     zona: 'Pickup point', destinazione: 'Destination', volo: 'Flight number',
     passeggeri: 'Passengers', bagagli: 'Luggage', gdpr: 'I agree to the processing of my data to reply to this booking request',
@@ -285,6 +293,7 @@ const countryCodes = [
 /* ---------- Stato del form ---------- */
 const form = reactive({
   name: '',
+  titolo: '',
   country: '+39',
   phone: '',
   lingua: props.lang === 'en' ? 'en' : props.lang === 'it' ? 'it' : 'ar',
@@ -354,7 +363,7 @@ watch(() => props.prefill, (p) => {
 
 function resetForm() {
   Object.assign(form, {
-    name: '', country: '+39', phone: '', lingua: form.lingua, tipoServizio: 'aeroporto',
+    name: '', titolo: '', country: '+39', phone: '', lingua: form.lingua, tipoServizio: 'aeroporto',
     dataOra: '', zona: '', destinazione: '', volo: '', passeggeri: '', bagagli: '',
     gdpr: false, website: '',
   });
@@ -367,6 +376,7 @@ async function saveToFirestore(snapshot) {
     await addDoc(collection(props.db, 'bookings'), {
       // campi storici (compatibilità con il mirror attuale in Admin.vue)
       name: snapshot.name,
+      titolo: snapshot.titolo || null,
       country: snapshot.country,
       phone: snapshot.phone,
       service: TIPI_SERVIZIO.find(s => s.id === snapshot.tipoServizio)?.it || snapshot.tipoServizio,
@@ -401,9 +411,11 @@ function submitBooking() {
 
   sending.value = true;
   const servizioLabel = TIPI_SERVIZIO.find(s => s.id === form.tipoServizio);
+  const titoloItem = TITOLI.find(t2 => t2.id === form.titolo);
+  const titoloPrefix = titoloItem && titoloItem.id ? `${label(titoloItem)} ` : '';
   const lines = [
     `📋 ${form.name ? '' : ''}Nuova richiesta di prenotazione — ${props.brandName}`,
-    `Nome: ${form.name}`,
+    `Nome: ${titoloPrefix}${form.name}`,
     `Telefono: ${form.country} ${form.phone}`,
     `Servizio: ${servizioLabel ? label(servizioLabel) : form.tipoServizio}`,
   ];
@@ -436,6 +448,13 @@ function submitBooking() {
 
     <!-- honeypot anti-bot: rimane nascosto e vuoto per un utente reale -->
     <input type="text" v-model="form.website" tabindex="-1" autocomplete="off" class="bf-honeypot">
+
+    <label class="bf-field">
+      <span>{{ t.titolo }}</span>
+      <select v-model="form.titolo">
+        <option v-for="item in TITOLI" :key="item.id" :value="item.id">{{ label(item) }}</option>
+      </select>
+    </label>
 
     <label class="bf-field">
       <span>{{ t.name }}</span>

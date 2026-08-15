@@ -354,7 +354,6 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
     try {
       if (willBeConfirmed && !b.fleetDocId) {
         const noteParts = [];
-        if (driverName) noteParts.push(`Autista: ${driverName}`);
         noteParts.push(`Da sito agenzia · ${b.service || ''}`);
         if (b.flight) noteParts.push(`Volo: ${b.flight}`);
         if (b.people) noteParts.push(`Persone: ${b.people}`);
@@ -368,19 +367,28 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
           zona: 'Sito agenzia',
           destinazione: b.hotel || b.service || '',
           veicolo: '',
-          stato: 'confermata',
+          // Campo "autista" popolato con il nome esatto scelto nel modale
+          // (idealmente preso dalla lista employees di ncc-fleet), così la
+          // prenotazione risulta collegata al conducente reale e non solo
+          // menzionata nelle note.
+          autista: driverName || '',
+          // "autista_assegnato" è lo stato dedicato in ncc-fleet quando un
+          // conducente è già assegnato alla corsa (vedi bookingConstants.js).
+          stato: driverName ? 'autista_assegnato' : 'confermato',
           note: noteParts.join(' | '),
           createdAt: new Date().toISOString(),
           reminderSent: false,
         });
         await updateDoc(doc(db, 'bookings', b.id), { fleetDocId: fleetDoc.id });
       } else if (b.fleetDocId) {
-        // Già specchiata in precedenza: aggiorna lo stato (confermata/annullata)
-        // e, se è stato inserito un nome autista alla riconferma, anche la nota.
-        const fleetUpdates = { stato: willBeConfirmed ? 'confermata' : 'annullata' };
+        // Già specchiata in precedenza: aggiorna lo stato (confermato/annullato)
+        // e il nome autista se inserito/modificato alla riconferma.
+        const fleetUpdates = {
+          stato: willBeConfirmed ? (driverName ? 'autista_assegnato' : 'confermato') : 'annullato',
+        };
         if (willBeConfirmed && driverName) {
-          const noteParts = [`Autista: ${driverName}`];
-          noteParts.push(`Da sito agenzia · ${b.service || ''}`);
+          fleetUpdates.autista = driverName;
+          const noteParts = [`Da sito agenzia · ${b.service || ''}`];
           if (b.flight) noteParts.push(`Volo: ${b.flight}`);
           if (b.people) noteParts.push(`Persone: ${b.people}`);
           if (b.bags) noteParts.push(`Valigie: ${b.bags}`);

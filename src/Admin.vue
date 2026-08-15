@@ -45,7 +45,7 @@ async function loadDriversList() {
     driversList.value = snap.docs
       .map((d) => d.data())
       .filter((e) => e.name)
-      .map((e) => ({ name: e.name, phone: e.phone || '' }));
+      .map((e) => ({ name: e.name, phone: e.phone || '', carId: e.carId || '' }));
     driversListLoaded = true;
   } catch (e) {
     console.warn('Impossibile caricare la lista autisti da ncc-fleet:', e);
@@ -396,6 +396,37 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
           fleetUpdates.note = noteParts.join(' | ');
         }
         await updateDoc(doc(fleetDb, 'prenotazioni', b.fleetDocId), fleetUpdates);
+      }
+
+      // Specchia anche in "Corse" (collezione trips), così la corsa appare
+      // pure nella tab Corse di ncc-fleet, non solo in Prenotazioni. Creata
+      // una sola volta per prenotazione (fleetTripId salvato per evitare
+      // duplicati alle riconferme successive). Il veicolo (carId) viene
+      // preso dal campo "carId" già assegnato all'autista in employees, se
+      // presente; il prezzo (fare) non è raccolto dal sito, quindi resta a
+      // 0 — va aggiornato manualmente in "Corse" quando noto.
+      if (willBeConfirmed && driverName && !b.fleetTripId) {
+        const matchedDriver = driversList.value.find(
+          (d) => d.name.trim().toLowerCase() === driverName.trim().toLowerCase()
+        );
+        const tripNoteParts = [`Da sito agenzia · Autista: ${driverName}`];
+        if (b.flight) tripNoteParts.push(`Volo: ${b.flight}`);
+        if (b.people) tripNoteParts.push(`Persone: ${b.people}`);
+        if (b.bags) tripNoteParts.push(`Valigie: ${b.bags}`);
+        if (b.details) tripNoteParts.push(b.details);
+
+        const pickupTime = b.dataOra && b.dataOra.includes('T') ? b.dataOra.split('T')[1].slice(0, 5) : '';
+
+        const tripDoc = await addDoc(collection(fleetDb, 'trips'), {
+          date: b.serviceDate || new Date().toISOString().slice(0, 10),
+          time: pickupTime,
+          carId: matchedDriver?.carId || '',
+          route: `Sito agenzia → ${b.hotel || b.service || ''}`,
+          fare: 0,
+          payment: '',
+          notes: tripNoteParts.join(' | '),
+        });
+        await updateDoc(doc(db, 'bookings', b.id), { fleetTripId: tripDoc.id });
       }
     } catch (e) {
       console.warn('Impossibile aggiornare lo specchio su ncc-fleet:', e);

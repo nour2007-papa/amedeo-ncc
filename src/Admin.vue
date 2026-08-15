@@ -90,14 +90,23 @@ onMounted(() => {
       signOut(auth);
       user.value = null;
       authLoading.value = false;
+      unsubscribeBookings();
       return;
     }
     accessDenied.value = false;
     user.value = u;
     authLoading.value = false;
+    if (u) {
+      subscribeBookings();
+    } else {
+      unsubscribeBookings();
+    }
   });
 });
-onUnmounted(() => unsubAuth && unsubAuth());
+onUnmounted(() => {
+  unsubAuth && unsubAuth();
+  unsubscribeBookings();
+});
 
 function isMobileDevice() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -150,16 +159,25 @@ const bookings = ref([]);
 const bookingsLoading = ref(true);
 let unsubBookings = null;
 
-onMounted(() => {
+function subscribeBookings() {
+  if (unsubBookings) return; // già in ascolto, evita doppie sottoscrizioni
   const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
   unsubBookings = onSnapshot(q, (snap) => {
     bookings.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     bookingsLoading.value = false;
-  }, () => {
+  }, (err) => {
+    console.error('Errore nel caricamento delle prenotazioni:', err);
     bookingsLoading.value = false;
   });
-});
-onUnmounted(() => unsubBookings && unsubBookings());
+}
+function unsubscribeBookings() {
+  if (unsubBookings) {
+    unsubBookings();
+    unsubBookings = null;
+    bookings.value = [];
+    bookingsLoading.value = true;
+  }
+}
 
 /* ---------- Grouping & filtering (day / week / month) ---------- */
 const viewMode = ref('day'); // 'day' | 'week' | 'month'

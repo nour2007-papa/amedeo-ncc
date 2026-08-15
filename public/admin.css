@@ -92,6 +92,13 @@ html,body{background:var(--ink);}
 .admin-lang-picker button.active{border-color:var(--brass); color:var(--brass-bright); background:rgba(196,164,88,0.12);}
 .admin-modal-actions{display:flex; gap:10px; justify-content:flex-end;}
 .admin-modal-actions .admin-install{margin-top:0;}
+.admin-driver-wa-banner{
+  max-width:900px; margin:12px auto 0; padding:12px 16px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  background:rgba(37,211,102,0.12); border:1px solid rgba(37,211,102,0.4);
+  border-radius:10px; font-size:0.9rem;
+}
+.admin-driver-wa-banner span{flex:1; min-width:200px;}
 .admin-days{max-width:900px; margin:0 auto; padding:24px;}
 .admin-filters{
   max-width:900px; margin:0 auto; padding:16px 24px 0;

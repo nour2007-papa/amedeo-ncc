@@ -33,6 +33,10 @@ const driverPhoneInput = ref('');
 const confirmLang = ref('it');
 const driversList = ref([]); // autisti presi da ncc-fleet (nome + telefono)
 let driversListLoaded = false;
+// Link WhatsApp all'autista pronto dopo la conferma: i browser bloccano una
+// seconda finestra popup aperta nello stesso click, quindi non la apriamo
+// automaticamente — mostriamo un pulsante che l'admin clicca manualmente.
+const pendingDriverWaLink = ref(null); // { url, driverName, bookingId }
 
 async function loadDriversList() {
   if (driversListLoaded || !fleetDb) return;
@@ -319,13 +323,16 @@ function confirmDriverModal() {
 async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) {
   const onMobile = isMobileDevice();
 
-  // Desktop: open both tabs synchronously, right when the click happens —
-  // opening them after the `await` below breaks the direct link to the
-  // user's click and browsers silently block them as popups.
+  // Desktop: open the client tab synchronously, right when the click happens —
+  // opening it after the `await` below breaks the direct link to the user's
+  // click and the browser silently blocks it as a popup.
   // Mobile: skip this — mobile browsers often don't keep a blank tab
-  // alive reliably, so we navigate the current tab instead (below), one at a time.
+  // alive reliably, so we navigate the current tab instead (below).
+  // NOTE: we only open ONE window here. Most browsers block a second
+  // window.open() fired from the same click (silently — no error), which is
+  // why the driver's WhatsApp message was never sending. The driver link is
+  // prepared below and shown as a manual button instead.
   const waWindow = (willBeConfirmed && !onMobile) ? window.open('', '_blank') : null;
-  const waDriverWindow = (willBeConfirmed && !onMobile && driverPhone) ? window.open('', '_blank') : null;
 
   try {
     const updates = { confirmed: willBeConfirmed };
@@ -334,7 +341,6 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
   } catch (e) {
     alert('Errore: impossibile aggiornare lo stato. Riprova.');
     if (waWindow) waWindow.close();
-    if (waDriverWindow) waDriverWindow.close();
     return;
   }
 
@@ -393,7 +399,6 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
     if (!phone) {
       alert('Numero di telefono mancante: impossibile aprire WhatsApp per la conferma.');
       if (waWindow) waWindow.close();
-      if (waDriverWindow) waDriverWindow.close();
       return;
     }
     const T = WA_CONFIRM_TEXT[lang] || WA_CONFIRM_TEXT.it;
@@ -429,16 +434,20 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
       if (b.details) dLines.push(`Note: ${b.details}`);
       const dText = encodeURIComponent(dLines.join('\n'));
       const dUrl = `https://wa.me/${driverDigits}?text=${dText}`;
-      if (onMobile) {
-        // Su mobile non possiamo aprire due tab: il messaggio all'autista
-        // resta pronto, l'admin lo apre a parte se serve.
-      } else if (waDriverWindow) {
-        waDriverWindow.location.href = dUrl;
-      } else {
-        window.open(dUrl, '_blank', 'noopener,noreferrer');
-      }
+      // Non apriamo questa finestra automaticamente: il browser blocca in
+      // silenzio un secondo window.open() nello stesso click (vedi nota
+      // sopra), quindi il messaggio all'autista non partiva mai. Il link
+      // resta pronto qui e l'admin lo apre con un click separato (pulsante
+      // "Invia messaggio all'autista" nella UI).
+      pendingDriverWaLink.value = { url: dUrl, driverName, bookingId: b.id };
     }
   }
+}
+
+function openDriverWaLink() {
+  if (!pendingDriverWaLink.value) return;
+  window.open(pendingDriverWaLink.value.url, '_blank', 'noopener,noreferrer');
+  pendingDriverWaLink.value = null;
 }
 
 async function deleteBooking(b) {
@@ -615,6 +624,12 @@ async function installApp() {
             <button class="admin-install" @click="confirmDriverModal">Conferma</button>
           </div>
         </div>
+      </div>
+
+      <div v-if="pendingDriverWaLink" class="admin-driver-wa-banner">
+        <span>📲 رسالة السائق {{ pendingDriverWaLink.driverName }} جاهزة — اضغط لإرسالها على واتساب</span>
+        <button class="admin-install" @click="openDriverWaLink">إرسال للسائق</button>
+        <button class="admin-logout" @click="pendingDriverWaLink = null">تجاهل</button>
       </div>
 
       <div v-if="bookings.length > 0" class="admin-filters">

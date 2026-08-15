@@ -5,7 +5,7 @@
 // tutti (come faceva la versione precedente) rischiava di far fallire un
 // file per un problema di rete transitorio invece di lasciare che il
 // browser ritentasse da solo.
-const CACHE_NAME = 'gestione-amedeo-v4';
+const CACHE_NAME = 'gestione-amedeo-v5';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

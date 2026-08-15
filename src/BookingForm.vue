@@ -449,17 +449,19 @@ function submitBooking() {
     <!-- honeypot anti-bot: rimane nascosto e vuoto per un utente reale -->
     <input type="text" v-model="form.website" tabindex="-1" autocomplete="off" class="bf-honeypot">
 
-    <label class="bf-field">
-      <span>{{ t.titolo }}</span>
-      <select v-model="form.titolo">
-        <option v-for="item in TITOLI" :key="item.id" :value="item.id">{{ label(item) }}</option>
-      </select>
-    </label>
+    <div class="bf-row">
+      <label class="bf-field bf-field-titolo">
+        <span>{{ t.titolo }}</span>
+        <select v-model="form.titolo">
+          <option v-for="item in TITOLI" :key="item.id" :value="item.id">{{ label(item) }}</option>
+        </select>
+      </label>
 
-    <label class="bf-field">
-      <span>{{ t.name }}</span>
-      <input type="text" v-model.trim="form.name" required maxlength="100">
-    </label>
+      <label class="bf-field bf-field-name">
+        <span>{{ t.name }}</span>
+        <input type="text" v-model.trim="form.name" required maxlength="100">
+      </label>
+    </div>
 
     <div class="bf-row">
       <label class="bf-field">
@@ -551,6 +553,9 @@ function submitBooking() {
 .bf-field { display: flex; flex-direction: column; gap: 4px; flex: 1; font-size: .85rem; }
 .bf-field span { opacity: .85; }
 .bf-field input, .bf-field select { padding: 10px 12px; border-radius: 8px; border: 1px solid #333; background: #12151c; color: #fff; }
+.bf-field-titolo { flex: 0 0 110px; min-width: 90px; }
+.bf-field-titolo select { padding-left: 8px; padding-right: 6px; }
+.bf-field-name { flex: 1 1 auto; }
 .bf-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .bf-gdpr { display: flex; align-items: flex-start; gap: 8px; font-size: .78rem; opacity: .85; }
 .bf-submit { padding: 12px; border-radius: 8px; border: none; background: #d9a441; color: #12151c; font-weight: 700; cursor: pointer; }

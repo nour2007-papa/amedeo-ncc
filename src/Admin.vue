@@ -382,7 +382,7 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
           cliente: b.name || '',
           telefono: `${b.country || ''} ${b.phone || ''}`.trim(),
           dataOra: b.serviceDate ? `${b.serviceDate}T00:00:00` : new Date().toISOString(),
-          zona: 'Sito agenzia',
+          zona: b.zona || 'Sito agenzia',
           destinazione: b.hotel || b.service || '',
           veicolo: '',
           // Campo "autista" popolato con il nome esatto scelto nel modale
@@ -439,7 +439,7 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
           date: b.serviceDate || new Date().toISOString().slice(0, 10),
           time: pickupTime,
           carId: matchedDriver?.carId || '',
-          route: `Sito agenzia → ${b.hotel || b.service || ''}`,
+          route: `${b.zona || 'Sito agenzia'} → ${b.hotel || b.service || ''}`,
           fare: 0,
           payment: '',
           notes: tripNoteParts.join(' | '),

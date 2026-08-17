@@ -756,22 +756,24 @@ onUnmounted(() => {
 
 <main>
 <section class="hero wrap">
-  <div class="hero-eyebrow reveal delay-1" v-reveal>{{ t.hero_eyebrow }}</div>
-  <h1 class="reveal delay-2" v-reveal v-html="t.hero_title"></h1>
-  <p class="sub reveal delay-3" v-reveal>{{ t.hero_sub }}</p>
+  <div class="hero-content">
+    <div class="hero-eyebrow reveal delay-1" v-reveal>{{ t.hero_eyebrow }}</div>
+    <h1 class="reveal delay-2" v-reveal v-html="t.hero_title"></h1>
+    <p class="sub reveal delay-3" v-reveal>{{ t.hero_sub }}</p>
 
-  <img
-    :src="griffinLogoLarge"
-    alt=""
-    aria-hidden="true"
-    class="hero-griffin reveal delay-3"
-    v-reveal
-    :style="{ '--griffin-float': griffinOffset + 'px' }"
-  >
+    <img
+      :src="griffinLogoLarge"
+      alt=""
+      aria-hidden="true"
+      class="hero-griffin reveal delay-3"
+      v-reveal
+      :style="{ '--griffin-float': griffinOffset + 'px' }"
+    >
 
-  <div class="cta-row reveal delay-4" v-reveal>
-    <a href="#contatti" class="btn btn-primary">{{ t.hero_cta1 }}</a>
-    <a href="#servizi" class="btn btn-ghost">{{ t.hero_cta2 }}</a>
+    <div class="cta-row reveal delay-4" v-reveal>
+      <a href="#contatti" class="btn btn-primary">{{ t.hero_cta1 }}</a>
+      <a href="#servizi" class="btn btn-ghost">{{ t.hero_cta2 }}</a>
+    </div>
   </div>
 
   <div class="search-box reveal delay-5" v-reveal>
@@ -1085,23 +1087,24 @@ onUnmounted(() => {
   }
   .cta-row{display:flex;gap:16px;margin-top:40px;flex-wrap:wrap;}
 
-  /* HERO GRIFFIN — mobile: sits inline under the headline, before
-     the CTA buttons. Desktop: moves into the empty right-hand
-     space of the hero via absolute positioning, vertically
-     centered, with a subtle scroll-driven float (--griffin-float,
-     set inline from JS). */
+  /* HERO GRIFFIN — mobile: small, modest, inline under the
+     subtitle before the CTA buttons. Desktop: positioned inside
+     .hero-content only (headline block), NOT the full hero
+     section — so it never reaches down into .search-box below.
+     Subtle scroll-driven float via --griffin-float (set from JS). */
+  .hero-content{position:relative;}
   .hero-griffin{
-    display:block;width:min(60%,260px);margin:28px auto 0;opacity:.9;
+    display:block;width:120px;margin:18px auto 0;opacity:.85;
     pointer-events:none;user-select:none;
     transform:translateY(calc(-1 * var(--griffin-float,0px)));
     transition:transform .15s linear;
   }
   @media(min-width:901px){
     .hero-griffin{
-      position:absolute;top:50%;right:0;width:340px;margin:0;z-index:0;
+      position:absolute;top:50%;right:0;width:240px;margin:0;z-index:0;
       transform:translateY(calc(-50% - var(--griffin-float,0px)));
     }
-    .hero-eyebrow,.hero h1,.hero p.sub,.hero .cta-row,.hero .search-box{
+    .hero-eyebrow,.hero h1,.hero p.sub,.hero .cta-row{
       position:relative;z-index:1;
     }
   }

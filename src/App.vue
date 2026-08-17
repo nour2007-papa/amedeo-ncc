@@ -1271,15 +1271,6 @@ onUnmounted(() => {
   .video-gallery--single{
     grid-template-columns:1fr;max-width:420px;margin:0 auto;
   }
-  .video-gallery--full{
-    max-width:100vw;width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);
-  }
-  .video-gallery--full .promo-video{
-    border-radius:0;border-left:none;border-right:none;aspect-ratio:21/9;
-  }
-  @media(max-width:760px){
-    .video-gallery--full .promo-video{aspect-ratio:9/16;}
-  }
   .promo-video{
     width:min(100%,calc(75vh * 9 / 16));max-width:420px;
     aspect-ratio:9/16;object-fit:cover;display:block;margin:0 auto;

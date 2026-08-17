@@ -805,7 +805,7 @@ onUnmounted(() => {
     <h2>{{ t.video_title }}</h2>
     <div class="tag mono">{{ t.video_tag }}</div>
   </div>
-  <div class="video-gallery video-gallery--single video-gallery--full">
+  <div class="video-gallery video-gallery--single">
     <video class="promo-video" controls muted playsinline preload="metadata">
       <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786929691/video5769265625520152920.mp4" type="video/mp4">
     </video>

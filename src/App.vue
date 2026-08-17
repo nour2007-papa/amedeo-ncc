@@ -4,6 +4,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import BookingForm from './BookingForm.vue';
+import griffinLogoLarge from './assets/griffin-logo-large.png';
 
 /* =========================================================
    Firebase — saves each booking request to Firestore so it
@@ -688,6 +689,34 @@ onUnmounted(() => {
   window.visualViewport?.removeEventListener('scroll', syncFabToViewport);
   window.removeEventListener('orientationchange', syncFabToViewport);
 });
+
+/* =========================================================
+   Hero griffin — subtle float/parallax on scroll (desktop
+   only visually, since it sits absolutely in the hero's empty
+   right-hand space there; on mobile it flows inline under the
+   headline so the transform is harmless either way). Tracked
+   with a rAF-throttled scroll listener to avoid layout thrash.
+   ========================================================= */
+const griffinOffset = ref(0);
+let griffinTicking = false;
+function updateGriffinOffset() {
+  // Small, capped drift (max ~24px) so it reads as a gentle float
+  // rather than a jarring parallax jump.
+  griffinOffset.value = Math.min(24, window.scrollY * 0.06);
+  griffinTicking = false;
+}
+function onScrollGriffin() {
+  if (!griffinTicking) {
+    window.requestAnimationFrame(updateGriffinOffset);
+    griffinTicking = true;
+  }
+}
+onMounted(() => {
+  window.addEventListener('scroll', onScrollGriffin, { passive: true });
+});
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScrollGriffin);
+});
 </script>
 
 <template>
@@ -730,6 +759,16 @@ onUnmounted(() => {
   <div class="hero-eyebrow reveal delay-1" v-reveal>{{ t.hero_eyebrow }}</div>
   <h1 class="reveal delay-2" v-reveal v-html="t.hero_title"></h1>
   <p class="sub reveal delay-3" v-reveal>{{ t.hero_sub }}</p>
+
+  <img
+    :src="griffinLogoLarge"
+    alt=""
+    aria-hidden="true"
+    class="hero-griffin reveal delay-3"
+    v-reveal
+    :style="{ '--griffin-float': griffinOffset + 'px' }"
+  >
+
   <div class="cta-row reveal delay-4" v-reveal>
     <a href="#contatti" class="btn btn-primary">{{ t.hero_cta1 }}</a>
     <a href="#servizi" class="btn btn-ghost">{{ t.hero_cta2 }}</a>
@@ -1045,6 +1084,27 @@ onUnmounted(() => {
     max-width:480px;color:var(--steel);font-size:1.05rem;margin-top:26px;font-weight:300;
   }
   .cta-row{display:flex;gap:16px;margin-top:40px;flex-wrap:wrap;}
+
+  /* HERO GRIFFIN — mobile: sits inline under the headline, before
+     the CTA buttons. Desktop: moves into the empty right-hand
+     space of the hero via absolute positioning, vertically
+     centered, with a subtle scroll-driven float (--griffin-float,
+     set inline from JS). */
+  .hero-griffin{
+    display:block;width:min(60%,260px);margin:28px auto 0;opacity:.9;
+    pointer-events:none;user-select:none;
+    transform:translateY(calc(-1 * var(--griffin-float,0px)));
+    transition:transform .15s linear;
+  }
+  @media(min-width:901px){
+    .hero-griffin{
+      position:absolute;top:50%;right:0;width:340px;margin:0;z-index:0;
+      transform:translateY(calc(-50% - var(--griffin-float,0px)));
+    }
+    .hero-eyebrow,.hero h1,.hero p.sub,.hero .cta-row,.hero .search-box{
+      position:relative;z-index:1;
+    }
+  }
 
   .search-box{margin-top:50px;background:var(--surface);border:1px solid var(--line);padding:22px;}
   .search-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:14px;}

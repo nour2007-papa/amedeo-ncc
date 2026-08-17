@@ -1218,14 +1218,15 @@ onUnmounted(() => {
     .video-gallery--full .promo-video{aspect-ratio:9/16;}
   }
   .promo-video{
-    width:100%;aspect-ratio:9/16;object-fit:cover;
+    width:min(100%,calc(75vh * 9 / 16));max-width:420px;
+    aspect-ratio:9/16;object-fit:cover;display:block;margin:0 auto;
     background:var(--surface);border:1px solid var(--line);border-radius:4px;
     transition:border-color .25s;
   }
   .promo-video:hover{border-color:var(--brass);}
   @media(max-width:760px){
     .video-gallery{grid-template-columns:1fr;}
-    .promo-video{aspect-ratio:16/9;}
+    .promo-video{width:min(100%,calc(65vh * 9 / 16));}
   }
 
   /* TESTIMONIALS */

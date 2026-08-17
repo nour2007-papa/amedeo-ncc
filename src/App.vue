@@ -1087,22 +1087,22 @@ onUnmounted(() => {
   }
   .cta-row{display:flex;gap:16px;margin-top:40px;flex-wrap:wrap;}
 
-  /* HERO GRIFFIN — mobile: small, modest, inline under the
-     subtitle before the CTA buttons. Desktop: positioned inside
-     .hero-content only (headline block), NOT the full hero
-     section — so it never reaches down into .search-box below.
-     Subtle scroll-driven float via --griffin-float (set from JS). */
+  /* HERO GRIFFIN — hidden on mobile entirely; shown only on
+     desktop, positioned inside .hero-content only (headline
+     block), NOT the full hero section — so it never reaches
+     down into .search-box below. Subtle scroll-driven float via
+     --griffin-float (set from JS). */
   .hero-content{position:relative;}
   .hero-griffin{
-    display:block;width:120px;margin:18px auto 0;opacity:.85;
-    pointer-events:none;user-select:none;
-    transform:translateY(calc(-1 * var(--griffin-float,0px)));
-    transition:transform .15s linear;
+    display:none;
   }
   @media(min-width:901px){
     .hero-griffin{
-      position:absolute;top:50%;right:0;width:240px;margin:0;z-index:0;
-      transform:translateY(calc(-50% - var(--griffin-float,0px)));
+      display:block;
+      position:absolute;top:6px;right:0;width:240px;margin:0;z-index:0;
+      opacity:.85;pointer-events:none;user-select:none;
+      transform:translateY(calc(-1 * var(--griffin-float,0px)));
+      transition:transform .15s linear;
     }
     .hero-eyebrow,.hero h1,.hero p.sub,.hero .cta-row{
       position:relative;z-index:1;

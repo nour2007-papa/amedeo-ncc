@@ -1107,6 +1107,9 @@ onUnmounted(() => {
     .hero-eyebrow,.hero h1,.hero p.sub,.hero .cta-row{
       position:relative;z-index:1;
     }
+    html[dir="rtl"] .hero-griffin{
+      right:auto;left:0;transform:translateY(calc(-1 * var(--griffin-float,0px))) scaleX(-1);
+    }
   }
 
   .search-box{margin-top:50px;background:var(--surface);border:1px solid var(--line);padding:22px;}

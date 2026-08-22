@@ -19,6 +19,7 @@
    ========================================================= */
 import { reactive, ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { sanitizeInput, validateName, validatePhone, validateDate, validateFlightNumber, validateNumberPeople, validateNumberBags } from './validation.js';
 
 const props = defineProps({
   db: { type: Object, default: null },           // istanza Firestore del sito ospitante (opzionale)
@@ -400,7 +401,8 @@ async function saveToFirestore(snapshot) {
       createdAt: serverTimestamp(),
     });
   } catch (e) {
-    console.warn('Impossibile salvare la prenotazione su Firestore:', e);
+    console.error('Impossibile salvare la prenotazione su Firestore:', e);
+    throw new Error('Si è verificato un errore durante il salvataggio. Riprova o contatta direttamente via WhatsApp.');
   }
 }
 
@@ -408,6 +410,39 @@ async function submitBooking() {
   // honeypot: bot rilevato → reset silenzioso, nessun invio
   if (form.website) { resetForm(); return; }
   if (!form.name || !form.phone || !form.gdpr) return;
+
+  // Validation
+  if (!validateName(form.name)) {
+    alert('Per favore inserisci un nome valido (minimo 2 caratteri).');
+    return;
+  }
+  if (!validatePhone(form.phone)) {
+    alert('Per favore inserisci un numero di telefono valido.');
+    return;
+  }
+  if (form.dataOra && !validateDate(form.dataOra)) {
+    alert('La data del servizio deve essere nel futuro.');
+    return;
+  }
+  if (form.volo && !validateFlightNumber(form.volo)) {
+    alert('Il numero di volo non è valido (es. AZ1234).');
+    return;
+  }
+  if (form.passeggeri && !validateNumberPeople(form.passeggeri)) {
+    alert('Il numero di passeggeri deve essere tra 1 e 20.');
+    return;
+  }
+  if (form.bagagli && !validateNumberBags(form.bagagli)) {
+    alert('Il numero di bagagli deve essere tra 0 e 20.');
+    return;
+  }
+
+  // Sanitize inputs
+  form.name = sanitizeInput(form.name);
+  form.zona = sanitizeInput(form.zona);
+  form.destinazione = sanitizeInput(form.destinazione);
+  form.volo = sanitizeInput(form.volo);
+  note.value = sanitizeInput(note.value);
 
   sending.value = true;
   const servizioLabel = TIPI_SERVIZIO.find(s => s.id === form.tipoServizio);
@@ -432,7 +467,12 @@ async function submitBooking() {
 
   // ننتظر الحفظ في Firestore يخلص قبل ما نحول العميل لواتساب،
   // عشان المتصفح (خصوصًا الموبايل) ميلغيش الطلب لما تتغير الصفحة
-  await saveToFirestore({ ...form, note: note.value });
+  try {
+    await saveToFirestore({ ...form, note: note.value });
+  } catch (error) {
+    console.error('Errore durante il salvataggio:', error);
+    alert('Si è verificato un errore. Il tuo messaggio verrà comunque inviato via WhatsApp.');
+  }
   emit('sent', { ...form, note: note.value });
 
   window.location.href = `https://wa.me/${props.whatsappNumber}?text=${text}`;
@@ -471,7 +511,7 @@ async function submitBooking() {
         <div class="phone-row">
           <div class="country-select" ref="countrySelectRef" :class="{ open: countryOpen }">
             <button type="button" class="country-select-btn" @click="toggleCountryDropdown" :aria-expanded="countryOpen" aria-haspopup="listbox">
-              <img :src="`https://flagcdn.com/24x18/${selectedCountry.iso2}.png`" :alt="selectedCountry.name" width="22" height="16" class="country-flag">
+              <img :src="`https://flagcdn.com/24x18/${selectedCountry.iso2}.png`" :alt="`Bandiera ${selectedCountry.name}`" width="22" height="16" class="country-flag">
               <span>{{ selectedCountry.code }}</span>
               <svg class="country-chevron" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
             </button>
@@ -479,7 +519,7 @@ async function submitBooking() {
               <input type="text" v-model="countrySearch" class="country-search" placeholder="..." @click.stop>
               <div class="country-list">
                 <button type="button" v-for="c in filteredCountries" :key="c.code + c.iso2" class="country-item" role="option" @click="selectCountry(c)">
-                  <img :src="`https://flagcdn.com/24x18/${c.iso2}.png`" :alt="c.name" width="22" height="16" loading="lazy">
+                  <img :src="`https://flagcdn.com/24x18/${c.iso2}.png`" :alt="`Bandiera ${c.name}`" width="22" height="16" loading="lazy">
                   <span class="country-item-name">{{ c.name }}</span>
                   <span class="country-item-code">{{ c.code }}</span>
                 </button>

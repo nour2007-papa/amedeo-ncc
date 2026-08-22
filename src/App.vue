@@ -5,6 +5,8 @@ import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import BookingForm from './BookingForm.vue';
 import griffinLogoLarge from './assets/griffin-logo-large.png';
+import { dict } from './i18n.js';
+import { services, fleet, trips, otherItalyImages, customTripImages } from './content.js';
 
 /* =========================================================
    Firebase — saves each booking request to Firestore so it
@@ -23,12 +25,6 @@ try {
 
 /* Il salvataggio su Firestore ora avviene dentro BookingForm.vue
    (riceve `db` come prop) — questa funzione non serve più qui. */
-
-/* =========================================================
-   i18n dictionary (IT / EN / AR) — ported 1:1 from the
-   latest final HTML (includes SEO/privacy/footer keys).
-   ========================================================= */
-const dict = {
   "it": {
     "routes": [
       {
@@ -311,198 +307,11 @@ const dict = {
     "cookie_text": "We only use technical cookies necessary for this site to function. By clicking \"Accept\" you consent to the use of cookies. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">Policy</a>",
     "cookie_accept": "Accept",
     "cookie_dismiss": "Dismiss",
-    "f_service_placeholder": "Choose a service",
-    "f_country_search": "Search country or code...",
-    "f_country_none": "No country found"
-  },
-  "ar": {
-    "routes": [
-      {
-        "code": "MXP → DUOMO",
-        "label": "مطار مالبينسا"
-      },
-      {
-        "code": "LIN → CITY",
-        "label": "مطار ليناتي"
-      },
-      {
-        "code": "BGY → BRERA",
-        "label": "مطار أوريو أل سيريو"
-      },
-      {
-        "code": "MILANO → ROMA",
-        "label": "رحلات بعيدة"
-      },
-      {
-        "code": "MILANO → GINEVRA",
-        "label": "توصيل داخل أوروبا"
-      },
-      {
-        "code": "CENTRO → FIERA",
-        "label": "تمثيل تجاري"
-      }
-    ],
-    "nav_services": "خدماتنا",
-    "nav_fleet": "الأسطول",
-    "nav_video": "فيديو",
-    "nav_trips": "الرحلات",
-    "nav_contact": "تواصل معنا",
-    "hero_eyebrow": "خدمة سائق خاص · ميلانو ولومبارديا",
-    "hero_title": "سائقك الخاص، <em>في أي مكان بميلانو</em>، وفي أي وقت.",
-    "hero_sub": "نقل من وإلى المطار، تمثيل تجاري، مناسبات وجولات سياحية. نعمل من لومبارديا إلى أي وجهة في إيطاليا وأوروبا. دقة في المواعيد وسرية تامة وسيارات مرسيدس فاخرة — الحجز خلال دقيقتين.",
-    "hero_cta1": "احجز رحلتك",
-    "hero_cta2": "اكتشف خدماتنا",
-    "search_from": "من",
-    "search_to": "إلى",
-    "search_date": "التاريخ",
-    "search_service": "الخدمة",
-    "search_submit": "احصل على عرض سعر",
-    "stat1": "متاح",
-    "stat2": "نطاق الرحلات",
-    "stat3": "متوسط وقت الرد",
-    "stat4": "اللغات المتاحة",
-    "services_title": "خدماتنا",
-    "services_tag": "لكل رحلة رمز وموعد ووجهة.",
-    "s1_title": "نقل من وإلى المطار",
-    "s1_desc": "متابعة الرحلات لحظة بلحظة، وقت انتظار مجاني، ومساعدة في نقل الأمتعة.",
-    "s2_title": "تمثيل تجاري",
-    "s2_desc": "سائق مخصص للاجتماعات والمعارض والوفود الأجنبية.",
-    "s3_title": "جولات سياحية بمرشد",
-    "s3_desc": "برامج مخصصة داخل المدينة ولومبارديا، بالعربية والإيطالية والإنجليزية.",
-    "s4_title": "المناسبات والاحتفالات",
-    "s4_desc": "أفراح وحفلات وسهرات — أسطول منسق ودقة تامة في المواعيد.",
-    "s5_title": "رحلات بعيدة · إيطاليا وأوروبا",
-    "s5_desc": "رحلات من ميلانو إلى أي مدينة إيطالية وأهم الوجهات الأوروبية.",
-    "fleet_title": "الأسطول",
-    "fleet_tag": "سيارات مصانة ومعقّمة قبل كل رحلة.",
-    "video_title": "شاهدونا في الخدمة",
-    "video_tag": "اكتشفوا خدمة جريفوني NCC بالفيديو.",
-    "c1": "سيارة تنفيذية لثلاثة ركاب، مثالية للنقل والتمثيل التجاري.",
-    "c2": "أقصى درجات الراحة لكبار الضيوف والمناسبات المهمة.",
-    "c3": "فان فاخر حتى 6 ركاب، مثالي للعائلات والمجموعات الصغيرة.",
-    "btn_book_car": "احجز هذه السيارة",
-    "btn_book_trip": "اطلب هذه الرحلة",
-    "trips_title": "رحلات مقترحة",
-    "trips_tag": "رحلات يومية خارج ميلانو مع سائق خاص، حسب الطلب.",
-    "v1": "المدينة الخالدة، تحت تصرفكم ليوم كامل أو لعطلة نهاية الأسبوع.",
-    "v2": "برج بيزا المائل وساحة الميراكولي، في رحلة يوم واحد من ميلانو.",
-    "v3": "البحيرة والقنوات، مع سائق ينتظركم للعودة.",
-    "v4": "أرقى بحيرة في إيطاليا، على بعد أقل من ساعة من ميلانو.",
-    "v5": "برج إيفل والشوارع الباريسية الكبرى، مع سائق مخصص طوال الرحلة.",
-    "v6": "جبال الألب والبحيرات ومدن مثل لوتسرن وزيوريخ، في رحلة واحدة بلا أي هم.",
-    "v8": "الدومو ومتحف أوفيتزي وعصر النهضة الإيطالية، على بعد يوم واحد بس.",
-    "v9_title": "وجهات تانية في إيطاليا",
-    "v9_desc": "ساحل أمالفي، تشينكوي تيري، وأماكن كتير تانية — قولّنا الوجهة وإحنا هننظملك الرحلة.",
-    "v1_title": "روما",
-    "v2_title": "بيزا",
-    "v3_title": "فينيسيا",
-    "v4_title": "كومو",
-    "v5_title": "باريس",
-    "v6_title": "سويسرا",
-    "v8_title": "فلورنسا",
-    "pay_cash": "نقدي",
-    "pay_card": "بطاقات ائتمان",
-    "pay_paypal": "PayPal",
-    "pay_transfer": "🏦 تحويل بنكي",
-    "img_unavailable": "الصورة غير متاحة",
-    "btn_other_italy": "اطلب هذه الوجهة",
-    "note_other_italy": "وجهة في إيطاليا يحددها العميل (مثلاً ساحل أمالفي أو تشينكوي تيري — يرجى التحديد في حقل الفندق/الوجهة)",
-    "v7_title": "اختر وجهتك بنفسك",
-    "v7_desc": "مش لاقي وجهتك؟ قولّنا مكانها وإحنا هننظملك الرحلة على مقاسك في أي مكان بإيطاليا أو أوروبا.",
-    "btn_custom_trip": "اختر وجهتك",
-    "note_car_prefix": "السيارة المطلوبة",
-    "note_trip_prefix": "رحلة إلى",
-    "note_custom": "الوجهة يحددها العميل (يرجى كتابة المدينة في حقل الفندق/الوجهة)",
-    "note_from_prefix": "الانطلاق من",
-    "note_date_prefix": "التاريخ",
-    "contact_title": "احجز الآن",
-    "contact_tag": "تأكيد الحجز خلال 8 دقائق.",
-    "f_name": "الاسم الكامل",
-    "f_phone": "الهاتف / واتساب",
-    "f_details": "التاريخ والوقت وملاحظات إضافية",
-    "f_people": "عدد الأشخاص",
-    "f_flight": "رقم الرحلة (لو نقل من المطار)",
-    "f_hotel": "الفندق / عنوان الوجهة",
-    "f_bags": "عدد الحقائب",
-    "f_service_date": "تاريخ الرحلة",
-    "f_gdpr": "أوافق على معالجة البيانات الشخصية وفقًا لسياسة الخصوصية GDPR.",
-    "f_submit": "إرسال الطلب",
-    "i_phone": "الهاتف",
-    "i_whatsapp": "واتساب",
-    "i_mail": "البريد الإلكتروني",
-    "i_area": "منطقة الخدمة",
-    "i_hours": "ساعات العمل",
-    "foot_note": "خدمة نقل خاص مرخصة (NCC) — ميلانو",
-    "pay_title": "وسائل الدفع المقبولة",
-    "f_success_alert": "جاري توجيهك إلى واتساب...",
-    "wa_message": "مرحباً 👋 أرغب في حجز سيارة مع سائق.\nعدد الأشخاص: \nالمدينة: \nالتاريخ: ",
-    "pay_bank": "تحويل بنكي",
-    "foot_nav": "القائمة",
-    "foot_legal": "قانوني",
-    "foot_privacy": "سياسة الخصوصية",
-    "foot_cookies": "سياسة ملفات تعريف الارتباط",
-    "foot_terms": "الشروط والأحكام",
-    "foot_contact_title": "تواصل معنا",
-    "privacy_title": "سياسة الخصوصية",
-    "privacy_p1": "أميدو NCC، مقره في ميلانو، بصفته مسؤول معالجة البيانات، يجمع البيانات الشخصية المقدمة طواعية عبر نموذج الاتصال (الاسم، الهاتف، البريد، تفاصيل الخدمة) لغرض وحيد هو الرد على طلبات الحجز والتسعير.",
-    "privacy_p2": "سيتم معالجة البيانات وفقًا للائحة العامة لحماية البيانات (GDPR). لن يتم مشاركة البيانات مع أطراف ثالثة إلا كما يقتضي القانون. سيتم الاحتفاظ بالبيانات لمدة لا تتجاوز 24 شهرًا.",
-    "privacy_p3": "<b>حقوقك:</b> وفقًا للمواد 15-22 من GDPR، لديك حق الوصول والتصحيح والحذف وتقييد المعالجة ونقل البيانات والاعتراض. للتمرن على حقوقك، تواصل معنا عبر amedeo018@libero.it.",
-    "privacy_p4": "<b>ملفات تعريف الارتباط:</b> يستخدم هذا الموقع فقط ملفات تعريف ارتباط تقنية ضرورية. لا نستخدم ملفات تعريف ارتباط للتتبع أو من أطراف ثالثة.",
-    "privacy_l1": "الأساس القانوني: الموافقة (نموذج الاتصال) والمصلحة المشروعة (تنفيذ الخدمة).",
-    "privacy_l2": "مسؤول حماية البيانات: أميدو NCC — amedeo018@libero.it",
-    "privacy_p5": "آخر تحديث: يوليو 2026.",
-    "cookie_text": "نستخدم فقط ملفات تعريف الارتباط التقنية الضرورية لتشغيل هذا الموقع. بالنقر على \"قبول\" فإنك توافق على استخدام ملفات تعريف الارتباط. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">السياسة</a>",
-    "cookie_accept": "قبول",
-    "cookie_dismiss": "إغلاق",
-    "f_service_placeholder": "اختر الخدمة",
-    "f_country_search": "ابحث عن دولة أو كود...",
-    "f_country_none": "لا توجد نتائج"
-  }
-};
-
 
 /* =========================================================
    Structured content — services / fleet / trips driven by
    arrays + v-for instead of copy-pasted markup.
    ========================================================= */
-const services = [
-  { code: 'RT · 001', titleKey: 's1_title', descKey: 's1_desc', tag1: 'MXP / LIN / BGY', tag2: 'H24' },
-  { code: 'RT · 002', titleKey: 's2_title', descKey: 's2_desc', tag1: 'MILANO', tag2: 'MEZZA/GG' },
-  { code: 'RT · 003', titleKey: 's3_title', descKey: 's3_desc', tag1: 'MILANO / LOMB.', tag2: 'SU RICH.' },
-  { code: 'RT · 004', titleKey: 's4_title', descKey: 's4_desc', tag1: 'ON DEMAND', tag2: 'PREV. 48H' },
-  { code: 'RT · 005', titleKey: 's5_title', descKey: 's5_desc', tag1: 'IT / EU', tag2: 'SU RICH.' },
-];
-
-const fleet = [
-  { code: 'CLASSE-E', name: 'Mercedes Classe E', descKey: 'c1', photo: 'https://images.unsplash.com/photo-1589199928766-31ac1fa51e2c?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Mercedes Classe E esterno' },
-  { code: 'CLASSE-S', name: 'Mercedes Classe S', descKey: 'c2', photo: 'https://images.unsplash.com/photo-1615135902193-b107418fb7eb?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Mercedes Classe S esterno' },
-  { code: 'CLASSE-V', name: 'Mercedes Classe V', descKey: 'c3', photo: 'https://images.unsplash.com/photo-1765461734605-34657fa04db2?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Mercedes Classe V esterno' },
-];
-
-const trips = [
-  { kind: 'trip', code: 'MI → ROMA', titleKey: 'v1_title', descKey: 'v1', photo: 'https://images.unsplash.com/photo-1515542483964-5e8c63d7d89b?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Roma', name: 'Roma' },
-  { kind: 'trip', code: 'MI → PISA', titleKey: 'v2_title', descKey: 'v2', photo: 'https://images.unsplash.com/photo-1548510907-5b514c51aba6?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Pisa', name: 'Pisa' },
-  { kind: 'trip', code: 'MI → VENEZIA', titleKey: 'v3_title', descKey: 'v3', photo: 'https://images.unsplash.com/photo-1767199289290-010e7caf8240?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Venezia', name: 'Venezia' },
-  { kind: 'trip', code: 'MI → COMO', titleKey: 'v4_title', descKey: 'v4', photo: 'https://images.unsplash.com/photo-1603491595041-3429047e7afc?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Como', name: 'Como' },
-  { kind: 'trip', code: 'MI → FIRENZE', titleKey: 'v8_title', descKey: 'v8', photo: 'https://images.unsplash.com/photo-1748191024085-391d76b8d5ed?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Firenze', name: 'Firenze' },
-  { kind: 'otherItaly', code: 'MI → ITALIA', titleKey: 'v9_title', descKey: 'v9_desc', photoRotating: 'otherItaly' },
-  { kind: 'trip', code: 'MI → PARIGI', titleKey: 'v5_title', descKey: 'v5', photo: 'https://images.unsplash.com/photo-1431274172761-fca41d930114?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Parigi', name: 'Parigi' },
-  { kind: 'trip', code: 'MI → SVIZZERA', titleKey: 'v6_title', descKey: 'v6', photo: 'https://images.unsplash.com/photo-1527668752968-14dc70a27c95?fm=jpg&q=70&w=1200&auto=format&fit=crop', alt: 'Svizzera', name: 'Svizzera' },
-  { kind: 'custom', code: 'MI → ?', titleKey: 'v7_title', descKey: 'v7_desc', photoRotating: 'customTrip' },
-];
-
-const otherItalyImages = [
-  'https://images.unsplash.com/photo-1561956021-947f09ae0101?fm=jpg&q=70&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1530735606451-8f5f13955328?fm=jpg&q=70&w=1200&auto=format&fit=crop',
-];
-const customTripImages = [
-  'https://images.unsplash.com/photo-1515542483964-5e8c63d7d89b?fm=jpg&q=70&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1548510907-5b514c51aba6?fm=jpg&q=70&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1767199289290-010e7caf8240?fm=jpg&q=70&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1603491595041-3429047e7afc?fm=jpg&q=70&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1431274172761-fca41d930114?fm=jpg&q=70&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1527668752968-14dc70a27c95?fm=jpg&q=70&w=1200&auto=format&fit=crop',
-];
 const otherItalyIndex = ref(0);
 const customTripIndex = ref(0);
 const otherItalyPhoto = computed(() => otherItalyImages[otherItalyIndex.value]);
@@ -541,11 +350,12 @@ function setLang(lang) {
 const boardRoutes = computed(() => [...t.value.routes, ...t.value.routes]);
 
 /* =========================================================
-   Broken-image fallback
+   Broken-image fallback with better error handling
    ========================================================= */
 function imgFallback(event) {
   const text = t.value.img_unavailable || 'IMAGE NOT AVAILABLE';
   const el = event.target;
+  console.warn('Image failed to load:', el.src);
   const div = document.createElement('div');
   div.className = 'car-photo broken';
   div.textContent = text;
@@ -560,7 +370,7 @@ function imgFallback(event) {
    ricerca nell'hero — le etichette restano quelle di t['sN_title']. */
 const SERVICE_ID_BY_INDEX = ['aeroporto', 'business', 'milano', 'evento', 'intercity'];
 const serviceFormValues = SERVICE_ID_BY_INDEX;
-const WHATSAPP_NUMBER = '393520003122';
+const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '393520003122';
 const search = reactive({ from: '', to: '', date: '', serviceIndex: 0 });
 
 /* Oggetto "prefill" passato a <BookingForm>: ogni volta che viene
@@ -722,26 +532,26 @@ onUnmounted(() => {
 <template>
 <noscript><div style="background:#B08D57;color:#0C0F12;padding:12px 28px;text-align:center;font-size:0.88rem;font-weight:500;">Questo sito richiede JavaScript per funzionare correttamente. Abilita JavaScript nel tuo browser.</div></noscript>
 
-<header>
-  <nav class="wrap">
+<header role="banner">
+  <nav class="wrap" role="navigation" aria-label="Navigazione principale">
     <div class="logo">
-      <img src="./assets/griffin-logo.png" alt="Grifone NCC" style="height:38px;width:auto;" />
+      <img src="./assets/griffin-logo.png" alt="Grifone NCC - Logo autista privato Milano" style="height:38px;width:auto;" />
       <span class="logo-text">GRIFONE <b>NCC</b></span>
     </div>
     <div class="nav-links" :class="{ active: navOpen }">
-      <a href="#servizi" @click="navOpen=false">{{ t.nav_services }}</a>
-      <a href="#flotta" @click="navOpen=false">{{ t.nav_fleet }}</a>
-      <a href="#video" @click="navOpen=false">{{ t.nav_video }}</a>
-      <a href="#viaggi" @click="navOpen=false">{{ t.nav_trips }}</a>
-      <a href="#contatti" @click="navOpen=false">{{ t.nav_contact }}</a>
+      <a href="#servizi" @click="navOpen=false" aria-label="Vai alla sezione Servizi">{{ t.nav_services }}</a>
+      <a href="#flotta" @click="navOpen=false" aria-label="Vai alla sezione Flotta">{{ t.nav_fleet }}</a>
+      <a href="#video" @click="navOpen=false" aria-label="Vai alla sezione Video">{{ t.nav_video }}</a>
+      <a href="#viaggi" @click="navOpen=false" aria-label="Vai alla sezione Viaggi">{{ t.nav_trips }}</a>
+      <a href="#contatti" @click="navOpen=false" aria-label="Vai alla sezione Contatti">{{ t.nav_contact }}</a>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
-      <div class="lang-switch" role="group" aria-label="Lingua / Language / اللغة">
+      <div class="lang-switch" role="group" aria-label="Selezione lingua / Language selection / اختيار اللغة">
         <button v-for="l in ['it','en','ar']" :key="l" :data-lang="l"
                 :class="{ active: currentLang===l }" :aria-pressed="currentLang===l"
                 @click="setLang(l)">{{ l.toUpperCase() }}</button>
       </div>
-      <button class="menu-toggle" aria-label="Menu" @click="navOpen = !navOpen">☰</button>
+      <button class="menu-toggle" aria-label="Apri menu mobile" @click="navOpen = !navOpen">☰</button>
     </div>
   </nav>
 </header>
@@ -754,16 +564,16 @@ onUnmounted(() => {
   </div>
 </div>
 
-<main>
-<section class="hero wrap">
+<main id="main-content">
+<section class="hero wrap" aria-labelledby="hero-title">
   <div class="hero-content">
     <div class="hero-eyebrow reveal delay-1" v-reveal>{{ t.hero_eyebrow }}</div>
-    <h1 class="reveal delay-2" v-reveal v-html="t.hero_title"></h1>
+    <h1 id="hero-title" class="reveal delay-2" v-reveal v-html="t.hero_title"></h1>
     <p class="sub reveal delay-3" v-reveal>{{ t.hero_sub }}</p>
 
     <img
       :src="griffinLogoLarge"
-      alt=""
+      alt="Logo Grifone NCC - Autista Privato Milano"
       aria-hidden="true"
       class="hero-griffin reveal delay-3"
       v-reveal
@@ -808,68 +618,68 @@ onUnmounted(() => {
   <div class="stat"><b>IT · EN · AR</b><span>{{ t.stat4 }}</span></div>
 </section>
 
-<section class="section wrap" id="servizi">
+<section class="section wrap" id="servizi" aria-labelledby="services-title">
   <div class="section-head reveal" v-reveal>
-    <h2>{{ t.services_title }}</h2>
+    <h2 id="services-title">{{ t.services_title }}</h2>
     <div class="tag mono">{{ t.services_tag }}</div>
   </div>
-  <div class="services">
-    <div class="stub reveal" v-reveal v-for="s in services" :key="s.code">
+  <div class="services" role="list" aria-label="Lista servizi NCC">
+    <article class="stub reveal" v-reveal v-for="s in services" :key="s.code" role="listitem">
       <div class="stub-code">{{ s.code }}</div>
       <h3>{{ t[s.titleKey] }}</h3>
       <p>{{ t[s.descKey] }}</p>
       <div class="stub-foot"><span>{{ s.tag1 }}</span><b>{{ s.tag2 }}</b></div>
-    </div>
+    </article>
   </div>
 </section>
 
-<section class="section wrap" id="flotta">
+<section class="section wrap" id="flotta" aria-labelledby="fleet-title">
   <div class="section-head reveal" v-reveal>
-    <h2>{{ t.fleet_title }}</h2>
+    <h2 id="fleet-title">{{ t.fleet_title }}</h2>
     <div class="tag mono">{{ t.fleet_tag }}</div>
   </div>
-  <div class="fleet">
-    <div class="car reveal" v-reveal v-for="c in fleet" :key="c.code">
+  <div class="fleet" role="list" aria-label="Flotta Mercedes premium">
+    <article class="car reveal" v-reveal v-for="c in fleet" :key="c.code" role="listitem">
       <img class="car-photo" :src="c.photo" :alt="c.alt" loading="lazy" @error="imgFallback">
       <div class="car-body">
         <div class="code">{{ c.code }}</div>
         <h4>{{ c.name }}</h4>
         <p>{{ t[c.descKey] }}</p>
-        <button class="car-btn" @click="selectCar(c.name)">{{ t.btn_book_car }}</button>
+        <button class="car-btn" @click="selectCar(c.name)" :aria-label="`Prenota ${c.name}`">{{ t.btn_book_car }}</button>
       </div>
-    </div>
+    </article>
   </div>
 </section>
 
-<section class="section wrap" id="video">
+<section class="section wrap" id="video" aria-labelledby="video-title">
   <div class="section-head reveal" v-reveal>
-    <h2>{{ t.video_title }}</h2>
+    <h2 id="video-title">{{ t.video_title }}</h2>
     <div class="tag mono">{{ t.video_tag }}</div>
   </div>
   <div class="video-gallery video-gallery--single">
-    <video class="promo-video" controls muted playsinline preload="metadata">
+    <video class="promo-video" controls muted playsinline preload="metadata" aria-label="Video promozionale Grifone NCC - Servizio autista privato Milano">
       <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786929691/video5769265625520152920.mp4" type="video/mp4">
     </video>
   </div>
 </section>
 
-<section class="section wrap" id="viaggi">
+<section class="section wrap" id="viaggi" aria-labelledby="trips-title">
   <div class="section-head reveal" v-reveal>
-    <h2>{{ t.trips_title }}</h2>
+    <h2 id="trips-title">{{ t.trips_title }}</h2>
     <div class="tag mono">{{ t.trips_tag }}</div>
   </div>
-  <div class="fleet">
-    <div class="car reveal" v-reveal v-for="trip in trips" :key="trip.code">
+  <div class="fleet" role="list" aria-label="Viaggi consigliati con autista privato">
+    <article class="car reveal" v-reveal v-for="trip in trips" :key="trip.code" role="listitem">
       <img class="car-photo" :src="tripPhoto(trip)" :alt="trip.alt || t[trip.titleKey]" loading="lazy" @error="imgFallback">
       <div class="car-body">
         <div class="code">{{ trip.code }}</div>
         <h4>{{ t[trip.titleKey] }}</h4>
         <p>{{ t[trip.descKey] }}</p>
-        <button class="car-btn" @click="onCardAction(trip)">
+        <button class="car-btn" @click="onCardAction(trip)" :aria-label="`Richiedi viaggio verso ${trip.name || t[trip.titleKey]}`">
           {{ trip.kind === 'otherItaly' ? t.btn_other_italy : (trip.kind === 'custom' ? t.btn_custom_trip : t.btn_book_trip) }}
         </button>
       </div>
-    </div>
+    </article>
   </div>
 </section>
 
@@ -879,10 +689,10 @@ onUnmounted(() => {
     <div class="tag mono">{{ t.contact_tag }}</div>
   </div>
   <div class="contact-grid">
-    <BookingForm :db="db" whatsapp-number="393520003122" :lang="currentLang" brand-name="Grifone NCC" :prefill="bookingPrefill" />
+    <BookingForm :db="db" :whatsapp-number="WHATSAPP_NUMBER" :lang="currentLang" brand-name="Grifone NCC" :prefill="bookingPrefill" />
     <div>
-      <div class="info-line"><span>{{ t.i_phone }}</span><span><a href="tel:+393520003122" style="color:var(--brass-bright);text-decoration:none;">+39 352 000 3122</a></span></div>
-      <div class="info-line"><span>{{ t.i_whatsapp }}</span><span><a href="https://wa.me/393520003122" target="_blank" rel="noopener" style="color:var(--brass-bright);text-decoration:none;">+39 352 000 3122</a></span></div>
+      <div class="info-line"><span>{{ t.i_phone }}</span><span><a :href="`tel:+${WHATSAPP_NUMBER}`" style="color:var(--brass-bright);text-decoration:none;">+39 352 000 3122</a></span></div>
+      <div class="info-line"><span>{{ t.i_whatsapp }}</span><span><a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" style="color:var(--brass-bright);text-decoration:none;">+39 352 000 3122</a></span></div>
       <div class="info-line"><span>{{ t.i_mail }}</span><span><a href="mailto:amedeo018@libero.it" style="color:var(--brass-bright);text-decoration:none;">amedeo018@libero.it</a></span></div>
       <div class="info-line"><span>{{ t.i_area }}</span><span>LOMBARDIA → ITALIA / EUROPA</span></div>
       <div class="info-line"><span>{{ t.i_hours }}</span><span>24/7</span></div>
@@ -933,9 +743,9 @@ onUnmounted(() => {
     </div>
     <div class="footer-col">
       <h4>{{ t.foot_contact_title }}</h4>
-      <a href="tel:+393520003122">+39 352 000 3122</a>
+      <a :href="`tel:+${WHATSAPP_NUMBER}`">+39 352 000 3122</a>
       <a href="mailto:amedeo018@libero.it">amedeo018@libero.it</a>
-      <a href="https://wa.me/393520003122" target="_blank" rel="noopener">WhatsApp</a>
+      <a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener">WhatsApp</a>
     </div>
   </div>
   <div class="footer-bottom">
@@ -1168,8 +978,9 @@ onUnmounted(() => {
   /* FLEET */
   .fleet{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);}
   .car{background:var(--ink);}
-  .car-photo{width:100%;height:200px;object-fit:cover;display:block;filter:grayscale(15%) contrast(1.05);background:var(--surface-2);transition:opacity .5s ease;}
+  .car-photo{width:100%;height:200px;object-fit:cover;display:block;filter:grayscale(15%) contrast(1.05);background:var(--surface-2);transition:opacity .5s ease,filter .3s ease;}
   .car-photo.broken{display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--steel);letter-spacing:0.08em;}
+  .car-photo:hover{filter:grayscale(0%) contrast(1.1);}
   .car-body{padding:26px 28px 34px;}
   .car .code{font-family:'IBM Plex Mono',monospace;color:var(--brass);font-size:0.72rem;letter-spacing:0.1em;}
   .car h4{font-family:'Fraunces',serif;font-size:1.4rem;font-weight:500;margin:10px 0 8px;}
@@ -1359,6 +1170,18 @@ onUnmounted(() => {
     .menu-toggle{display:block;}
     .contact-grid{grid-template-columns:1fr;}
     .section-head{flex-direction:column;align-items:flex-start;}
+  }
+  @media(min-width:761px) and (max-width:1024px){
+    .wrap{padding:0 20px;}
+    .search-grid{grid-template-columns:1fr 1fr 1fr auto;}
+    .search-box .btn{grid-column:4;}
+    .services{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+    .fleet{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
+    .contact-grid{grid-template-columns:1fr;gap:40px;}
+    .hero{padding:90px 0 70px;}
+    .hero h1{font-size:2.8rem;}
+    .stat{padding:28px 20px;}
+    .nav-links{gap:24px;font-size:0.8rem;}
   }
   :focus-visible{outline:2px solid var(--brass);outline-offset:2px;}
   @media (prefers-reduced-motion: reduce){

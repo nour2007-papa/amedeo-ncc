@@ -15,7 +15,7 @@ const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
 /* ---------- Login ---------- */
-const ADMIN_EMAIL = 'nour2007papa@gmail.com';
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'nour2007papa@gmail.com';
 const user = ref(null);
 const authLoading = ref(true);
 const email = ref('');
@@ -119,7 +119,18 @@ async function login() {
   try {
     await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
   } catch (e) {
-    loginError.value = 'Email o password non corretti.';
+    console.error('Login error:', e);
+    if (e.code === 'auth/user-not-found') {
+      loginError.value = 'Nessun account trovato con questa email.';
+    } else if (e.code === 'auth/wrong-password') {
+      loginError.value = 'Password non corretta.';
+    } else if (e.code === 'auth/invalid-email') {
+      loginError.value = 'Email non valida.';
+    } else if (e.code === 'auth/too-many-requests') {
+      loginError.value = 'Troppi tentativi. Riprova tra qualche minuto.';
+    } else {
+      loginError.value = 'Errore di accesso. Riprova.';
+    }
   } finally {
     loggingIn.value = false;
   }
@@ -140,8 +151,11 @@ async function resetPassword() {
     await sendPasswordResetEmail(auth, target);
     resetMessage.value = `Email inviata a ${target}. Controlla la posta (anche lo spam) per reimpostare la password.`;
   } catch (e) {
+    console.error('Password reset error:', e);
     if (e.code === 'auth/user-not-found') {
       loginError.value = 'Nessun account trovato con questa email.';
+    } else if (e.code === 'auth/invalid-email') {
+      loginError.value = 'Email non valida.';
     } else {
       loginError.value = 'Errore durante l\'invio: ' + e.message;
     }
@@ -512,6 +526,7 @@ async function deleteBooking(b) {
   try {
     await deleteDoc(doc(db, 'bookings', b.id));
   } catch (e) {
+    console.error('Delete booking error:', e);
     alert('Errore: impossibile eliminare la richiesta. Riprova.');
   }
 }

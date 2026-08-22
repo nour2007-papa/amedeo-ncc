@@ -5,14 +5,20 @@ import { getFirestore } from 'firebase/firestore';
 // È un progetto Firebase diverso da quello del sito (amedeo-ncc), quindi
 // serve una seconda connessione — inizializzata con un nome ("fleet") per
 // non entrare in conflitto con l'app Firebase principale del sito.
+// Legge SOLO dalle variabili d'ambiente — nessuna chiave reale è
+// scritta nel codice (vedi .env.example per il template).
 const fleetFirebaseConfig = {
-  apiKey: 'AIzaSyCuuiR30Yg6ROvYS0kF9ZIt_twIOnZRSdw',
-  authDomain: 'amedeo-fleet.firebaseapp.com',
-  projectId: 'amedeo-fleet',
-  storageBucket: 'amedeo-fleet.firebasestorage.app',
-  messagingSenderId: '988225863401',
-  appId: '1:988225863401:web:b4e98826478ca5bf1273a78',
+  apiKey: import.meta.env.VITE_FLEET_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FLEET_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FLEET_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FLEET_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FLEET_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FLEET_FIREBASE_APP_ID,
 };
+
+if (!fleetFirebaseConfig.apiKey) {
+  console.warn('[firebase-fleet.js] VITE_FLEET_FIREBASE_* env vars are missing — fleet Firebase will not connect. Check your .env file (see .env.example).');
+}
 
 let fleetDb = null;
 try {

@@ -427,14 +427,19 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
   // sopra: se questo fallisce, la conferma/annullamento sul sito resta valida.
   if (fleetDb) {
     try {
-      if (willBeConfirmed && !b.fleetDocId) {
-        const noteParts = [];
-        noteParts.push(`Da sito agenzia · ${b.service || ''}`);
-        if (b.flight) noteParts.push(`Volo: ${b.flight}`);
-        if (b.people) noteParts.push(`Persone: ${b.people}`);
-        if (b.bags) noteParts.push(`Valigie: ${b.bags}`);
-        if (b.details) noteParts.push(b.details);
+      const buildNoteParts = () => {
+        const parts = [`Da sito agenzia · ${b.service || ''}`];
+        if (b.flight) parts.push(`Volo: ${b.flight}`);
+        if (b.people) parts.push(`Persone: ${b.people}`);
+        if (b.bags) parts.push(`Valigie: ${b.bags}`);
+        if (b.details) parts.push(b.details);
+        return parts.join(' | ');
+      };
 
+      // Crea il documento gemello in "prenotazioni" e salva il suo id sulla
+      // prenotazione originale (amedeo-ncc), così le volte successive si
+      // aggiorna invece di duplicare.
+      const createFleetMirror = async () => {
         const fleetDoc = await addDoc(collection(fleetDb, 'prenotazioni'), {
           cliente: b.name || '',
           telefono: `${b.country || ''} ${b.phone || ''}`.trim(),
@@ -450,11 +455,15 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
           // "autista_assegnato" è lo stato dedicato in ncc-fleet quando un
           // conducente è già assegnato alla corsa (vedi bookingConstants.js).
           stato: driverName ? 'autista_assegnato' : 'confermato',
-          note: noteParts.join(' | '),
+          note: buildNoteParts(),
           createdAt: new Date().toISOString(),
           reminderSent: false,
         });
         await updateDoc(doc(db, 'bookings', b.id), { fleetDocId: fleetDoc.id });
+      };
+
+      if (willBeConfirmed && !b.fleetDocId) {
+        await createFleetMirror();
       } else if (b.fleetDocId) {
         // Già specchiata in precedenza: aggiorna lo stato (confermato/annullato)
         // e il nome autista se inserito/modificato alla riconferma.
@@ -463,14 +472,24 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
         };
         if (willBeConfirmed && driverName) {
           fleetUpdates.autista = driverName;
-          const noteParts = [`Da sito agenzia · ${b.service || ''}`];
-          if (b.flight) noteParts.push(`Volo: ${b.flight}`);
-          if (b.people) noteParts.push(`Persone: ${b.people}`);
-          if (b.bags) noteParts.push(`Valigie: ${b.bags}`);
-          if (b.details) noteParts.push(b.details);
-          fleetUpdates.note = noteParts.join(' | ');
+          fleetUpdates.note = buildNoteParts();
         }
-        await updateDoc(doc(fleetDb, 'prenotazioni', b.fleetDocId), fleetUpdates);
+        try {
+          await updateDoc(doc(fleetDb, 'prenotazioni', b.fleetDocId), fleetUpdates);
+        } catch (updateErr) {
+          // Riferimento "orfano": il documento gemello non esiste più su
+          // ncc-fleet (es. cancellato manualmente dalla dashboard flotta).
+          // Invece di fallire in silenzio, ricrea uno specchio nuovo così la
+          // prenotazione torna visibile — ma solo se stiamo confermando
+          // (un annullamento su un documento già assente non ha nulla da
+          // ricreare).
+          if (updateErr?.code === 'not-found' && willBeConfirmed) {
+            console.warn('[fleet-sync] fleetDocId orfano, ricreo lo specchio:', b.fleetDocId);
+            await createFleetMirror();
+          } else {
+            throw updateErr;
+          }
+        }
       }
 
       // Specchia anche in "Corse" (collezione trips), così la corsa appare

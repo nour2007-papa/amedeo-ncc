@@ -372,9 +372,10 @@ function resetForm() {
 }
 
 async function saveToFirestore(snapshot) {
-  if (!props.db) return;
+  if (!props.db) return null;
+  let docRef;
   try {
-    await addDoc(collection(props.db, 'bookings'), {
+    docRef = await addDoc(collection(props.db, 'bookings'), {
       // campi storici (compatibilità con il mirror attuale in Admin.vue)
       name: snapshot.name,
       titolo: snapshot.titolo || null,
@@ -404,6 +405,32 @@ async function saveToFirestore(snapshot) {
     console.error('Impossibile salvare la prenotazione su Firestore:', e);
     throw new Error('Si è verificato un errore durante il salvataggio. Riprova o contatta direttamente via WhatsApp.');
   }
+
+  // Specchia la prenotazione come bozza in ncc-fleet ("nuovo_contatto", senza
+  // autista), tramite l'API server-side /api/sync-pending — un visitatore
+  // anonimo non ha i permessi per scrivere direttamente su ncc-fleet.
+  // Best-effort e non bloccante: se fallisce (rete, API non configurata),
+  // la prenotazione sul sito resta comunque valida. La mirror verrà creata
+  // comunque più tardi quando l'admin conferma (vedi Admin.vue).
+  fetch('/api/sync-pending', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bookingId: docRef.id,
+      name: snapshot.name,
+      country: snapshot.country,
+      phone: snapshot.phone,
+      service: TIPI_SERVIZIO.find(s => s.id === snapshot.tipoServizio)?.it || snapshot.tipoServizio,
+      serviceDate: snapshot.dataOra ? snapshot.dataOra.slice(0, 10) : '',
+      hotel: snapshot.destinazione || null,
+      flight: snapshot.volo || null,
+      people: snapshot.passeggeri || null,
+      bags: snapshot.bagagli || null,
+      details: note.value || null,
+    }),
+  }).catch((e) => console.warn('[sync-pending] chiamata fallita (non bloccante):', e));
+
+  return docRef;
 }
 
 async function submitBooking() {

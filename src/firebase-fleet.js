@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 // Progetto Firebase separato usato da ncc-fleet (amedeo-fleet.vercel.app).
 // È un progetto Firebase diverso da quello del sito (amedeo-ncc), quindi
@@ -21,11 +22,20 @@ if (!fleetFirebaseConfig.apiKey) {
 }
 
 let fleetDb = null;
+// fleetAuth: Auth SEPARATO per il progetto amedeo-fleet (diverso da quello
+// del sito). SENZA questo, ogni scrittura verso fleetDb (prenotazioni, trips)
+// e ogni lettura (employees) viene rifiutata dalle Firestore Rules di
+// amedeo-fleet, perché quelle regole richiedono isAdmin() = signedIn() nel
+// contesto del progetto fleet, non del progetto sito. Vedi login() in
+// Admin.vue, dove ci si autentica su ENTRAMBI i progetti con le stesse
+// credenziali admin.
+let fleetAuth = null;
 try {
   const fleetApp = initializeApp(fleetFirebaseConfig, 'fleet');
   fleetDb = getFirestore(fleetApp);
+  fleetAuth = getAuth(fleetApp);
 } catch (e) {
   console.warn('Firebase (ncc-fleet) non configurato:', e);
 }
 
-export { fleetDb };
+export { fleetDb, fleetAuth };

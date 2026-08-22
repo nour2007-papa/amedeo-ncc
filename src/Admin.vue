@@ -8,7 +8,7 @@ import {
   getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
-import { fleetDb } from './firebase-fleet.js';
+import { fleetDb, fleetAuth } from './firebase-fleet.js';
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -24,6 +24,11 @@ const showPassword = ref(false);
 const loginError = ref('');
 const loggingIn = ref(false);
 const accessDenied = ref(false);
+// Stato della connessione admin al progetto Firebase di ncc-fleet. Se questo
+// resta 'error', la mirror delle prenotazioni verso fleet NON funzionerà
+// (le Firestore Rules di amedeo-fleet bloccano scritture senza questo login),
+// quindi lo mostriamo nell'interfaccia invece di fallire in silenzio.
+const fleetAuthStatus = ref('pending'); // 'pending' | 'ok' | 'error' | 'unconfigured'
 let unsubAuth = null;
 
 /* ---------- Modale "nome autista" alla conferma ---------- */
@@ -83,6 +88,7 @@ const WA_CONFIRM_TEXT = {
   },
 };
 
+let unsubFleetAuth = null;
 onMounted(() => {
   unsubAuth = onAuthStateChanged(auth, (u) => {
     if (u && u.email !== ADMIN_EMAIL) {
@@ -102,9 +108,22 @@ onMounted(() => {
       unsubscribeBookings();
     }
   });
+
+  // Rileva se una sessione fleet è già attiva (persistita da un login
+  // precedente, es. dopo un refresh della pagina) — se sì, fleetAuthStatus
+  // passa a 'ok' senza dover rifare login(). Se non configurato, lo segnala.
+  if (fleetAuth) {
+    unsubFleetAuth = onAuthStateChanged(fleetAuth, (fu) => {
+      if (fu) fleetAuthStatus.value = 'ok';
+      else if (fleetAuthStatus.value === 'ok') fleetAuthStatus.value = 'pending';
+    });
+  } else {
+    fleetAuthStatus.value = 'unconfigured';
+  }
 });
 onUnmounted(() => {
   unsubAuth && unsubAuth();
+  unsubFleetAuth && unsubFleetAuth();
   unsubscribeBookings();
 });
 
@@ -112,12 +131,34 @@ function isMobileDevice() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+// Autentica l'admin anche sul progetto Firebase di ncc-fleet, con le stesse
+// credenziali. Indipendente dal login principale: se fallisce, l'admin può
+// comunque lavorare su amedeo-ncc, ma la mirror verso fleet resta disattivata
+// (fleetAuthStatus lo segnala in UI invece di fallire in silenzio più avanti).
+async function loginFleet(emailValue, passwordValue) {
+  if (!fleetAuth) {
+    fleetAuthStatus.value = 'unconfigured';
+    return;
+  }
+  try {
+    await signInWithEmailAndPassword(fleetAuth, emailValue, passwordValue);
+    fleetAuthStatus.value = 'ok';
+  } catch (e) {
+    console.error('[fleetAuth] Login fallito — la mirror verso ncc-fleet NON funzionerà:', e);
+    fleetAuthStatus.value = 'error';
+  }
+}
+
 async function login() {
   loginError.value = '';
   accessDenied.value = false;
   loggingIn.value = true;
   try {
-    await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
+    const emailTrimmed = email.value.trim();
+    await signInWithEmailAndPassword(auth, emailTrimmed, password.value);
+    // Login sul progetto fleet in parallelo, non bloccante: un suo fallimento
+    // non deve impedire l'accesso al pannello principale.
+    loginFleet(emailTrimmed, password.value);
   } catch (e) {
     console.error('Login error:', e);
     if (e.code === 'auth/user-not-found') {
@@ -166,6 +207,8 @@ async function resetPassword() {
 
 function logout() {
   signOut(auth);
+  if (fleetAuth) signOut(fleetAuth).catch(() => {});
+  fleetAuthStatus.value = 'pending';
 }
 
 /* ---------- Bookings ---------- */
@@ -640,6 +683,12 @@ async function installApp() {
           <button class="admin-logout" @click="logout">Esci</button>
         </div>
       </header>
+
+      <div v-if="fleetAuthStatus === 'error' || fleetAuthStatus === 'unconfigured'" class="admin-fleet-warning">
+        ⚠️ Sincronizzazione con ncc-fleet NON attiva
+        ({{ fleetAuthStatus === 'error' ? 'login fallito' : 'non configurato' }}).
+        Le prenotazioni confermate NON verranno mostrate nella dashboard flotta.
+      </div>
 
       <div v-if="showIosHelp" class="admin-modal-overlay" @click.self="showIosHelp = false">
         <div class="admin-modal">

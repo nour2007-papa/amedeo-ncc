@@ -371,11 +371,24 @@ function resetForm() {
   selectedCountryIso2.value = 'it';
 }
 
+// Token segreto di modifica/annullamento (32 caratteri hex, crittograficamente
+// casuale). Salvato sulla prenotazione e incluso nel link che il cliente
+// riceve al momento della conferma (vedi Admin.vue → WA_CONFIRM_TEXT).
+// NON è un dato sensibile in sé, ma solo chi lo conosce può modificare
+// quella specifica prenotazione tramite /api/booking-edit.
+function generateEditToken() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function saveToFirestore(snapshot) {
   if (!props.db) return null;
   let docRef;
+  const editToken = generateEditToken();
   try {
     docRef = await addDoc(collection(props.db, 'bookings'), {
+      editToken,
       // campi storici (compatibilità con il mirror attuale in Admin.vue)
       name: snapshot.name,
       titolo: snapshot.titolo || null,

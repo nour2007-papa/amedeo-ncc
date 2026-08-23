@@ -5,6 +5,10 @@ import { createApp } from 'vue';
 // Chi non conosce questo link vede solo il sito pubblico normale.
 const isAdminRoute = window.location.hash.startsWith('#gestione-9f3k2x7q');
 
+// Pagina di modifica/annullamento prenotazione, aperta dal link segreto
+// inviato al cliente su WhatsApp alla conferma: #modifica-{bookingId}-{token}
+const isEditRoute = window.location.hash.startsWith('#modifica-');
+
 // La PWA (installazione come app sul telefono) è attiva SOLO per la
 // pagina di gestione: i visitatori del sito pubblico non vedono manifest
 // né service worker, e non viene mai proposto di installare il sito intero.
@@ -67,6 +71,8 @@ if (isAdminRoute) {
 // viceversa — invece di un unico file grande con tutto dentro.
 const loadComponent = isAdminRoute
   ? import('./Admin.vue')
+  : isEditRoute
+  ? import('./Modifica.vue')
   : import('./App.vue');
 
 loadComponent.then((mod) => {

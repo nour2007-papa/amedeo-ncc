@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'nour2007papa@gmail.com';
+    }
+    match /bookings/{bookingId} {
+      // الزائر يستطيع إنشاء طلب جديد فقط، ولا يستطيع القراءة أو التعديل أو الحذف.
+      // التعديل/الإلغاء اللاحق من العميل يمر حصرًا عبر /api/booking-edit
+      // (Firebase Admin SDK على السيرفر) — مش عبر هذه الـ rules مباشرة.
+      allow create: if request.auth == null
+        && request.resource.data.keys().hasOnly([
+          'name', 'titolo', 'country', 'phone', 'service', 'serviceDate',
+          'people', 'flight', 'hotel', 'bags', 'details', 'lang',
+          'tipoServizio', 'lingua', 'dataOra', 'zona', 'destinazione',
+          'volo', 'passeggeri', 'bagagli', 'confirmed', 'createdAt',
+          'editToken'
+        ])
+        && request.resource.data.keys().hasAll([
+          'name', 'phone', 'createdAt', 'confirmed', 'editToken'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0
+        && request.resource.data.phone.size() <= 20
+        && request.resource.data.editToken is string
+        && request.resource.data.editToken.size() == 32
+        && (!('titolo' in request.resource.data)
+            || request.resource.data.titolo == null
+            || (request.resource.data.titolo is string
+                && request.resource.data.titolo.size() <= 20))
+        && (!('details' in request.resource.data)
+            || request.resource.data.details == null
+            || (request.resource.data.details is string
+                && request.resource.data.details.size() <= 500))
+        && (!('zona' in request.resource.data)
+            || request.resource.data.zona == null
+            || (request.resource.data.zona is string
+                && request.resource.data.zona.size() <= 120))
+        && (!('destinazione' in request.resource.data)
+            || request.resource.data.destinazione == null
+            || (request.resource.data.destinazione is string
+                && request.resource.data.destinazione.size() <= 120))
+        && (!('volo' in request.resource.data)
+            || request.resource.data.volo == null
+            || (request.resource.data.volo is string
+                && request.resource.data.volo.size() <= 20))
+        && request.resource.data.lingua in ['ar', 'it', 'en', 'altro']
+        && request.resource.data.tipoServizio in [
+          'aeroporto', 'business', 'milano', 'evento', 'intercity', 'altro'
+        ]
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.confirmed == false;
+      allow read, update, delete: if isAdmin();
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

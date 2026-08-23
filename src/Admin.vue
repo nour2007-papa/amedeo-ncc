@@ -5,7 +5,7 @@ import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
-  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs,
+  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs, getDoc,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import { fleetDb, fleetAuth } from './firebase-fleet.js';
@@ -30,6 +30,192 @@ const accessDenied = ref(false);
 // quindi lo mostriamo nell'interfaccia invece di fallire in silenzio.
 const fleetAuthStatus = ref('pending'); // 'pending' | 'ok' | 'error' | 'unconfigured'
 let unsubAuth = null;
+
+// ---------- Retry mechanism per la mirror verso ncc-fleet ----------
+// Il mirror delle prenotazioni CONFERMATE (a differenza di quello dei
+// contatti pending, che passa da /api/sync-pending con retry server-side)
+// avviene client-side in performToggle(). Se fallisce (rete instabile,
+// sessione fleetAuth scaduta a metà operazione, ecc.) l'operazione non va
+// persa: viene ritentata subito con backoff, e se anche questo fallisce
+// viene salvata in un "coda" locale (localStorage) e ritentata automaticamente
+// al prossimo login riuscito su ncc-fleet o al click su "Riprova ora".
+const FLEET_SYNC_QUEUE_KEY = 'amedeoFleetSyncQueue';
+const pendingFleetSyncQueue = ref(loadSyncQueue());
+const flushingSyncQueue = ref(false);
+
+function loadSyncQueue() {
+  try {
+    const raw = localStorage.getItem(FLEET_SYNC_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSyncQueue(queue) {
+  pendingFleetSyncQueue.value = queue;
+  try {
+    localStorage.setItem(FLEET_SYNC_QUEUE_KEY, JSON.stringify(queue));
+  } catch (e) {
+    console.warn('[fleet-sync] impossibile salvare la coda locale:', e);
+  }
+}
+
+function enqueueFailedSync(op) {
+  const queue = loadSyncQueue();
+  // Un'operazione per prenotazione: se ne esiste già una in coda per lo
+  // stesso bookingId, la sostituisce con la più recente invece di accodarne
+  // un'altra (evita di rigiocare stati vecchi fuori ordine).
+  const next = queue.filter((q) => q.bookingId !== op.bookingId);
+  next.push({ ...op, queuedAt: Date.now(), attempts: 0 });
+  saveSyncQueue(next);
+}
+
+// Ritenta una funzione async con backoff crescente (500ms, 1000ms, 2000ms).
+// Ritorna il risultato se una tentativo va a buon fine, altrimenti rilancia
+// l'ultimo errore dopo `retries` tentativi.
+async function withRetry(fn, { retries = 3, baseDelayMs = 500 } = {}) {
+  let lastErr;
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) await new Promise((r) => setTimeout(r, baseDelayMs * attempt));
+    }
+  }
+  throw lastErr;
+}
+
+// Rigioca le operazioni rimaste in coda (mirror confermato fallito in
+// precedenza). Chiamata automaticamente quando fleetAuthStatus torna 'ok',
+// e manualmente dal pulsante "Riprova ora" nel banner.
+// Logica di mirror vera e propria — legge lo stato AGGIORNATO della
+// prenotazione da Firestore (non uno snapshot vecchio) per essere sicura al
+// 100% anche quando viene richiamata da flushFleetSyncQueue() minuti dopo
+// il fallimento originale. Se la prenotazione è stata cancellata nel
+// frattempo, non c'è nulla da specchiare: esce senza errore.
+async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
+  if (!fleetDb) throw new Error('fleetDb non configurato');
+  const bookingRef = doc(db, 'bookings', bookingId);
+  const bookingSnap = await getDoc(bookingRef);
+  if (!bookingSnap.exists()) return;
+  const b = { id: bookingSnap.id, ...bookingSnap.data() };
+
+  const buildNoteParts = () => {
+    const parts = [`Da sito agenzia · ${b.service || ''}`];
+    if (b.flight) parts.push(`Volo: ${b.flight}`);
+    if (b.people) parts.push(`Persone: ${b.people}`);
+    if (b.bags) parts.push(`Valigie: ${b.bags}`);
+    if (b.details) parts.push(b.details);
+    return parts.join(' | ');
+  };
+
+  // Crea il documento gemello in "prenotazioni" e salva il suo id sulla
+  // prenotazione originale (amedeo-ncc), così le volte successive si
+  // aggiorna invece di duplicare.
+  const createFleetMirror = async () => {
+    const fleetDoc = await addDoc(collection(fleetDb, 'prenotazioni'), {
+      cliente: b.name || '',
+      telefono: `${b.country || ''} ${b.phone || ''}`.trim(),
+      dataOra: b.serviceDate ? `${b.serviceDate}T00:00:00` : new Date().toISOString(),
+      zona: b.zona || 'Sito agenzia',
+      destinazione: b.hotel || b.service || '',
+      veicolo: '',
+      // Campo "autista" popolato con il nome esatto scelto nel modale
+      // (idealmente preso dalla lista employees di ncc-fleet), così la
+      // prenotazione risulta collegata al conducente reale e non solo
+      // menzionata nelle note.
+      autista: driverName || '',
+      // "autista_assegnato" è lo stato dedicato in ncc-fleet quando un
+      // conducente è già assegnato alla corsa (vedi bookingConstants.js).
+      stato: driverName ? 'autista_assegnato' : 'confermato',
+      note: buildNoteParts(),
+      createdAt: new Date().toISOString(),
+      reminderSent: false,
+    });
+    await updateDoc(bookingRef, { fleetDocId: fleetDoc.id });
+  };
+
+  if (willBeConfirmed && !b.fleetDocId) {
+    await createFleetMirror();
+  } else if (b.fleetDocId) {
+    // Già specchiata in precedenza: aggiorna lo stato (confermato/annullato)
+    // e il nome autista se inserito/modificato alla riconferma.
+    const fleetUpdates = {
+      stato: willBeConfirmed ? (driverName ? 'autista_assegnato' : 'confermato') : 'annullato',
+    };
+    if (willBeConfirmed && driverName) {
+      fleetUpdates.autista = driverName;
+      fleetUpdates.note = buildNoteParts();
+    }
+    try {
+      await updateDoc(doc(fleetDb, 'prenotazioni', b.fleetDocId), fleetUpdates);
+    } catch (updateErr) {
+      // Riferimento "orfano": il documento gemello non esiste più su
+      // ncc-fleet (es. cancellato manualmente dalla dashboard flotta).
+      // Invece di fallire in silenzio, ricrea uno specchio nuovo così la
+      // prenotazione torna visibile — ma solo se stiamo confermando
+      // (un annullamento su un documento già assente non ha nulla da
+      // ricreare).
+      if (updateErr?.code === 'not-found' && willBeConfirmed) {
+        console.warn('[fleet-sync] fleetDocId orfano, ricreo lo specchio:', b.fleetDocId);
+        await createFleetMirror();
+      } else {
+        throw updateErr;
+      }
+    }
+  }
+
+  // Specchia anche in "Corse" (collezione trips), così la corsa appare
+  // pure nella tab Corse di ncc-fleet, non solo in Prenotazioni. Creata
+  // una sola volta per prenotazione (fleetTripId salvato per evitare
+  // duplicati alle riconferme successive). Il veicolo (carId) viene
+  // preso dal campo "carId" già assegnato all'autista in employees, se
+  // presente; il prezzo (fare) non è raccolto dal sito, quindi resta a
+  // 0 — va aggiornato manualmente in "Corse" quando noto.
+  if (willBeConfirmed && driverName && !b.fleetTripId) {
+    const matchedDriver = driversList.value.find(
+      (d) => d.name.trim().toLowerCase() === driverName.trim().toLowerCase()
+    );
+    const tripNoteParts = [`Da sito agenzia · Autista: ${driverName}`];
+    if (b.flight) tripNoteParts.push(`Volo: ${b.flight}`);
+    if (b.people) tripNoteParts.push(`Persone: ${b.people}`);
+    if (b.bags) tripNoteParts.push(`Valigie: ${b.bags}`);
+    if (b.details) tripNoteParts.push(b.details);
+
+    const pickupTime = b.dataOra && b.dataOra.includes('T') ? b.dataOra.split('T')[1].slice(0, 5) : '';
+
+    const tripDoc = await addDoc(collection(fleetDb, 'trips'), {
+      date: b.serviceDate || new Date().toISOString().slice(0, 10),
+      time: pickupTime,
+      carId: matchedDriver?.carId || '',
+      route: `${b.zona || 'Sito agenzia'} → ${b.hotel || b.service || ''}`,
+      fare: 0,
+      payment: '',
+      notes: tripNoteParts.join(' | '),
+    });
+    await updateDoc(bookingRef, { fleetTripId: tripDoc.id });
+  }
+}
+
+async function flushFleetSyncQueue() {
+  if (flushingSyncQueue.value || !fleetDb) return;
+  const queue = loadSyncQueue();
+  if (!queue.length) return;
+  flushingSyncQueue.value = true;
+  const stillFailing = [];
+  for (const op of queue) {
+    try {
+      await withRetry(() => applyFleetMirror(op), { retries: 3, baseDelayMs: 700 });
+    } catch (e) {
+      console.warn('[fleet-sync] retry dalla coda fallito per', op.bookingId, e);
+      stillFailing.push({ ...op, attempts: (op.attempts || 0) + 1 });
+    }
+  }
+  saveSyncQueue(stillFailing);
+  flushingSyncQueue.value = false;
+}
 
 /* ---------- Modale "nome autista" alla conferma ---------- */
 const driverModalBooking = ref(null);
@@ -114,8 +300,14 @@ onMounted(() => {
   // passa a 'ok' senza dover rifare login(). Se non configurato, lo segnala.
   if (fleetAuth) {
     unsubFleetAuth = onAuthStateChanged(fleetAuth, (fu) => {
-      if (fu) fleetAuthStatus.value = 'ok';
-      else if (fleetAuthStatus.value === 'ok') fleetAuthStatus.value = 'pending';
+      if (fu) {
+        fleetAuthStatus.value = 'ok';
+        // Appena la sessione fleet è di nuovo attiva, ritenta in automatico
+        // qualunque mirror rimasta in coda da un fallimento precedente.
+        flushFleetSyncQueue();
+      } else if (fleetAuthStatus.value === 'ok') {
+        fleetAuthStatus.value = 'pending';
+      }
     });
   } else {
     fleetAuthStatus.value = 'unconfigured';
@@ -419,111 +611,22 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
     return;
   }
 
-  // Specchia la prenotazione nel pannello ncc-fleet ("Prenotazioni"), mappata
-  // sui campi che quella tabella si aspetta. La prima conferma crea il
-  // documento gemello e ne salva l'id sulla prenotazione originale; le volte
-  // successive (conferma/annulla ripetuti) aggiornano solo lo stato di quel
-  // documento invece di crearne uno nuovo. Indipendente dall'aggiornamento
-  // sopra: se questo fallisce, la conferma/annullamento sul sito resta valida.
+  // Specchia la prenotazione nel pannello ncc-fleet ("Prenotazioni"/"Corse").
+  // La logica vera e propria vive in applyFleetMirror() (riusata anche dal
+  // flush della coda di retry), qui viene solo invocata con 3 tentativi;
+  // se falliscono tutti l'operazione NON va persa: viene accodata e ritentata
+  // in automatico al prossimo login riuscito su fleet o dal banner "Riprova".
+  // Indipendente dall'aggiornamento sopra: se questo fallisce, la
+  // conferma/annullamento sul sito (amedeo-ncc) resta comunque valida.
   if (fleetDb) {
     try {
-      const buildNoteParts = () => {
-        const parts = [`Da sito agenzia · ${b.service || ''}`];
-        if (b.flight) parts.push(`Volo: ${b.flight}`);
-        if (b.people) parts.push(`Persone: ${b.people}`);
-        if (b.bags) parts.push(`Valigie: ${b.bags}`);
-        if (b.details) parts.push(b.details);
-        return parts.join(' | ');
-      };
-
-      // Crea il documento gemello in "prenotazioni" e salva il suo id sulla
-      // prenotazione originale (amedeo-ncc), così le volte successive si
-      // aggiorna invece di duplicare.
-      const createFleetMirror = async () => {
-        const fleetDoc = await addDoc(collection(fleetDb, 'prenotazioni'), {
-          cliente: b.name || '',
-          telefono: `${b.country || ''} ${b.phone || ''}`.trim(),
-          dataOra: b.serviceDate ? `${b.serviceDate}T00:00:00` : new Date().toISOString(),
-          zona: b.zona || 'Sito agenzia',
-          destinazione: b.hotel || b.service || '',
-          veicolo: '',
-          // Campo "autista" popolato con il nome esatto scelto nel modale
-          // (idealmente preso dalla lista employees di ncc-fleet), così la
-          // prenotazione risulta collegata al conducente reale e non solo
-          // menzionata nelle note.
-          autista: driverName || '',
-          // "autista_assegnato" è lo stato dedicato in ncc-fleet quando un
-          // conducente è già assegnato alla corsa (vedi bookingConstants.js).
-          stato: driverName ? 'autista_assegnato' : 'confermato',
-          note: buildNoteParts(),
-          createdAt: new Date().toISOString(),
-          reminderSent: false,
-        });
-        await updateDoc(doc(db, 'bookings', b.id), { fleetDocId: fleetDoc.id });
-      };
-
-      if (willBeConfirmed && !b.fleetDocId) {
-        await createFleetMirror();
-      } else if (b.fleetDocId) {
-        // Già specchiata in precedenza: aggiorna lo stato (confermato/annullato)
-        // e il nome autista se inserito/modificato alla riconferma.
-        const fleetUpdates = {
-          stato: willBeConfirmed ? (driverName ? 'autista_assegnato' : 'confermato') : 'annullato',
-        };
-        if (willBeConfirmed && driverName) {
-          fleetUpdates.autista = driverName;
-          fleetUpdates.note = buildNoteParts();
-        }
-        try {
-          await updateDoc(doc(fleetDb, 'prenotazioni', b.fleetDocId), fleetUpdates);
-        } catch (updateErr) {
-          // Riferimento "orfano": il documento gemello non esiste più su
-          // ncc-fleet (es. cancellato manualmente dalla dashboard flotta).
-          // Invece di fallire in silenzio, ricrea uno specchio nuovo così la
-          // prenotazione torna visibile — ma solo se stiamo confermando
-          // (un annullamento su un documento già assente non ha nulla da
-          // ricreare).
-          if (updateErr?.code === 'not-found' && willBeConfirmed) {
-            console.warn('[fleet-sync] fleetDocId orfano, ricreo lo specchio:', b.fleetDocId);
-            await createFleetMirror();
-          } else {
-            throw updateErr;
-          }
-        }
-      }
-
-      // Specchia anche in "Corse" (collezione trips), così la corsa appare
-      // pure nella tab Corse di ncc-fleet, non solo in Prenotazioni. Creata
-      // una sola volta per prenotazione (fleetTripId salvato per evitare
-      // duplicati alle riconferme successive). Il veicolo (carId) viene
-      // preso dal campo "carId" già assegnato all'autista in employees, se
-      // presente; il prezzo (fare) non è raccolto dal sito, quindi resta a
-      // 0 — va aggiornato manualmente in "Corse" quando noto.
-      if (willBeConfirmed && driverName && !b.fleetTripId) {
-        const matchedDriver = driversList.value.find(
-          (d) => d.name.trim().toLowerCase() === driverName.trim().toLowerCase()
-        );
-        const tripNoteParts = [`Da sito agenzia · Autista: ${driverName}`];
-        if (b.flight) tripNoteParts.push(`Volo: ${b.flight}`);
-        if (b.people) tripNoteParts.push(`Persone: ${b.people}`);
-        if (b.bags) tripNoteParts.push(`Valigie: ${b.bags}`);
-        if (b.details) tripNoteParts.push(b.details);
-
-        const pickupTime = b.dataOra && b.dataOra.includes('T') ? b.dataOra.split('T')[1].slice(0, 5) : '';
-
-        const tripDoc = await addDoc(collection(fleetDb, 'trips'), {
-          date: b.serviceDate || new Date().toISOString().slice(0, 10),
-          time: pickupTime,
-          carId: matchedDriver?.carId || '',
-          route: `${b.zona || 'Sito agenzia'} → ${b.hotel || b.service || ''}`,
-          fare: 0,
-          payment: '',
-          notes: tripNoteParts.join(' | '),
-        });
-        await updateDoc(doc(db, 'bookings', b.id), { fleetTripId: tripDoc.id });
-      }
+      await withRetry(() => applyFleetMirror({ bookingId: b.id, willBeConfirmed, driverName }), {
+        retries: 3,
+        baseDelayMs: 600,
+      });
     } catch (e) {
-      console.warn('Impossibile aggiornare lo specchio su ncc-fleet:', e);
+      console.warn('[fleet-sync] mirror fallita dopo 3 tentativi, accodata per retry automatico:', e);
+      enqueueFailedSync({ bookingId: b.id, willBeConfirmed, driverName });
     }
   }
 
@@ -707,6 +810,14 @@ async function installApp() {
         ⚠️ Sincronizzazione con ncc-fleet NON attiva
         ({{ fleetAuthStatus === 'error' ? 'login fallito' : 'non configurato' }}).
         Le prenotazioni confermate NON verranno mostrate nella dashboard flotta.
+      </div>
+
+      <div v-if="pendingFleetSyncQueue.length" class="admin-fleet-warning">
+        ⏳ {{ pendingFleetSyncQueue.length }} mirror verso ncc-fleet in attesa di sincronizzazione
+        (rete instabile o sessione fleet scaduta durante una conferma/annullamento).
+        <button type="button" :disabled="flushingSyncQueue" @click="flushFleetSyncQueue">
+          {{ flushingSyncQueue ? 'Sincronizzazione…' : 'Riprova ora' }}
+        </button>
       </div>
 
       <div v-if="showIosHelp" class="admin-modal-overlay" @click.self="showIosHelp = false">

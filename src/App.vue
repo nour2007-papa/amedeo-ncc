@@ -897,6 +897,7 @@ onUnmounted(() => {
   }
   .footer-inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:32px;margin-bottom:28px;}
   .footer-col h4{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--brass);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;}
+  .footer-col nav{display:block;padding:0;max-width:none;margin:0;}
   .footer-col a{display:block;color:var(--steel);font-size:0.82rem;padding:4px 0;transition:color .2s;}
   .footer-col a:hover{color:var(--paper);}
   .footer-bottom{border-top:1px solid var(--line);padding-top:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:0.75rem;}

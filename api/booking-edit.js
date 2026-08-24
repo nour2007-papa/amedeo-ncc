@@ -127,6 +127,7 @@ export default async function handler(req, res) {
         confirmed: false,
         cancelledByClient: true,
         cancelledAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       if (b.fleetDocId) {
         try {
@@ -146,6 +147,7 @@ export default async function handler(req, res) {
         if (field in updates) clean[field] = updates[field];
       }
       clean.confirmed = false; // il cliente ha modificato: torna "da confermare"
+      clean.updatedAt = new Date().toISOString();
 
       try {
         await bookingRef.update(clean);

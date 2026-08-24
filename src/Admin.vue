@@ -813,7 +813,12 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
   const waWindow = (willBeConfirmed && !onMobile) ? window.open('', '_blank') : null;
 
   try {
-    const updates = { confirmed: willBeConfirmed };
+    // BUG FIX: senza updatedAt, il guard anti-loop appena aggiunto in
+    // determineSyncAction() (che confronta updatedAt con syncedAt per
+    // evitare ri-sincronizzazioni infinite) non potrebbe MAI rilevare
+    // questa modifica reale — bloccherebbe per errore ogni conferma/
+    // annullamento futuro scambiandolo per "nessun cambiamento".
+    const updates = { confirmed: willBeConfirmed, updatedAt: new Date().toISOString() };
     if (willBeConfirmed && driverName) updates.driverName = driverName;
     await updateDoc(doc(db, 'bookings', b.id), updates);
   } catch (e) {

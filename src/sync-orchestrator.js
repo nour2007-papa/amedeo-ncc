@@ -49,6 +49,13 @@ export class SyncOrchestrator {
     this.fleetDb = fleetDb;
     this.syncQueue = new Map(); // قائمة انتظار للمزامنة
     this.activeSyncs = new Set(); // عمليات المزامنة النشطة
+    // BUG FIX: cooldown in-memory (NON scritto su Firestore, altrimenti
+    // genererebbe a sua volta un evento 'modified' che rialimenterebbe il
+    // loop). Impedisce di ritentare a raffica un bookingId appena fallito
+    // — es. permission-denied — ogni volta che il realtime listener si
+    // ritrigghera su un qualunque altro cambiamento della collection.
+    this.lastFailedAttemptAt = new Map(); // bookingId -> timestamp ms
+    this.failureCooldownMs = 60000; // non ritentare lo stesso booking fallito prima di 60s
     this.retryConfig = {
       maxRetries: 5,
       baseDelayMs: 1000,
@@ -73,6 +80,12 @@ export class SyncOrchestrator {
       return { status: SYNC_STATES.SYNCING, syncId };
     }
 
+    const lastFailure = this.lastFailedAttemptAt.get(bookingId);
+    if (lastFailure && (Date.now() - lastFailure) < this.failureCooldownMs) {
+      console.log(`[SyncOrchestrator] ${bookingId} in cooldown dopo un fallimento recente, salto (retry manuale sempre disponibile).`);
+      return { status: SYNC_STATES.FAILED, syncId, skipped: true, reason: 'cooldown' };
+    }
+
     this.activeSyncs.add(bookingId);
     
     try {
@@ -83,12 +96,14 @@ export class SyncOrchestrator {
       
       const duration = Date.now() - startTime;
       this.metrics.recordOperation('syncBooking', duration, true);
+      this.lastFailedAttemptAt.delete(bookingId);
       
       return { status: SYNC_STATES.COMPLETED, syncId, result, duration };
     } catch (error) {
       console.error(`[SyncOrchestrator] Sync failed for ${bookingId}:`, error);
       const duration = Date.now() - startTime;
       this.metrics.recordOperation('syncBooking', duration, false);
+      this.lastFailedAttemptAt.set(bookingId, Date.now());
       return { status: SYNC_STATES.FAILED, syncId, error, duration };
     } finally {
       this.activeSyncs.delete(bookingId);
@@ -129,6 +144,20 @@ export class SyncOrchestrator {
    * تحديد إجراء المزامنة المطلوب
    */
   determineSyncAction(booking, options) {
+    // BUG FIX: senza questo controllo, ogni sync riuscita scrive
+    // bookings.syncedAt, che è essa stessa un evento 'modified' sulla
+    // collection osservata dal realtime listener — ritriggerando la sync
+    // all'infinito anche quando tutto funziona correttamente. Se il
+    // booking è già sincronizzato più di recente dell'ultima modifica
+    // reale, non c'è nulla da fare.
+    if (
+      !options.forceSync &&
+      booking.syncedAt &&
+      new Date(booking.updatedAt || booking.createdAt) <= new Date(booking.syncedAt)
+    ) {
+      return { action: 'skip', reason: 'Already synced, no changes since last sync' };
+    }
+
     // إذا كان الملغى
     if (booking.cancelledByClient) {
       if (booking.fleetDocId) {

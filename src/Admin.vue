@@ -40,6 +40,7 @@ let syncOrchestrator = null;
 let syncQueueManager = null;
 let syncMonitor = null;
 let realtimeSyncUnsubscribe = null;
+let syncQueueStatusInterval = null;
 
 const syncMetrics = ref({
   totalSyncs: 0,
@@ -61,6 +62,19 @@ const syncQueueStatus = ref({
 function initializeEnhancedSync() {
   if (!fleetDb) {
     console.warn('[Admin] Cannot initialize enhanced sync: fleetDb not available');
+    return;
+  }
+
+  // BUG FIX: initializeEnhancedSync() viene chiamata da DUE listener separati
+  // (onAuthStateChanged su auth E su fleetAuth) senza alcuna protezione.
+  // Ogni chiamata ripetuta registrava un NUOVO onSnapshot su 'bookings' e un
+  // NUOVO setInterval, senza mai rimuovere i precedenti (il vecchio
+  // unsubscribe veniva sovrascritto e diventava irraggiungibile). Risultato:
+  // più listener duplicati attivi in parallelo, ciascuno che ritentava la
+  // stessa sincronizzazione fallita all'infinito (loop visibile in console).
+  // Idempotenza: se già inizializzato, non rifare nulla.
+  if (syncOrchestrator) {
+    console.log('[Admin] Enhanced sync già inizializzato, salto la re-inizializzazione.');
     return;
   }
 
@@ -101,7 +115,10 @@ function initializeEnhancedSync() {
     });
 
     // Update queue status periodically
-    setInterval(updateSyncQueueStatus, 5000);
+    // BUG FIX: prima l'interval non veniva mai salvato in una variabile,
+    // quindi non poteva essere ripulito da cleanupEnhancedSync() — ogni
+    // re-init ne aggiungeva uno nuovo per sempre (memory/interval leak).
+    syncQueueStatusInterval = setInterval(updateSyncQueueStatus, 5000);
 
     console.log('[Admin] Enhanced sync system initialized successfully');
   } catch (error) {
@@ -149,6 +166,10 @@ function cleanupEnhancedSync() {
   if (realtimeSyncUnsubscribe) {
     realtimeSyncUnsubscribe();
     realtimeSyncUnsubscribe = null;
+  }
+  if (syncQueueStatusInterval) {
+    clearInterval(syncQueueStatusInterval);
+    syncQueueStatusInterval = null;
   }
   if (syncOrchestrator) {
     syncOrchestrator.cleanup();

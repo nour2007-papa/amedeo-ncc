@@ -1,6 +1,7 @@
 // sync-utils.js - أدوات مساعدة للمزامنة
 // يمكن استيرادها في Admin.vue أو BookingForm.vue
 
+import { collection, onSnapshot } from 'firebase/firestore';
 import { SyncOrchestrator, ConflictResolver, SyncErrorHandler } from './sync-orchestrator.js';
 import { MemoryMonitor, CacheManager } from './performance-optimizer.js';
 
@@ -290,8 +291,7 @@ export function setupRealtimeSyncListener(db, orchestrator, options = {}) {
   };
 
   // إعداد listener
-  const unsubscribe = db.collection(collectionName)
-    .onSnapshot((snapshot) => {
+  const unsubscribe = onSnapshot(collection(db, collectionName), (snapshot) => {
       snapshot.docChanges().forEach(handleChange);
     }, (error) => {
       console.error('[RealtimeSyncListener] Error:', error);

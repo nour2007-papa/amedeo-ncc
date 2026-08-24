@@ -165,6 +165,8 @@ function cleanupEnhancedSync() {
 }
 
 // ---------- Legacy Sync Queue Functions (compatibilità) ----------
+const pendingFleetSyncQueue = ref([]);
+
 function loadSyncQueue() {
   try {
     const raw = localStorage.getItem(FLEET_SYNC_QUEUE_KEY);
@@ -343,6 +345,8 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
   }
 }
 
+const flushingSyncQueue = ref(false);
+
 async function flushFleetSyncQueue() {
   if (flushingSyncQueue.value || !fleetDb) return;
   const queue = loadSyncQueue();
@@ -427,6 +431,7 @@ const EDIT_BASE_URL = 'https://amedeo-ncc.vercel.app';
 
 let unsubFleetAuth = null;
 onMounted(() => {
+  pendingFleetSyncQueue.value = loadSyncQueue();
   unsubAuth = onAuthStateChanged(auth, (u) => {
     if (u && u.email !== ADMIN_EMAIL) {
       accessDenied.value = true;

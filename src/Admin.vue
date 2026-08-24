@@ -185,13 +185,21 @@ function saveSyncQueue(queue) {
   }
 }
 
-function enqueueFailedSync(op) {
+function enqueueFailedSync(op, lastError) {
   const queue = loadSyncQueue();
   // Un'operazione per prenotazione: se ne esiste già una in coda per lo
   // stesso bookingId, la sostituisce con la più recente invece di accodarne
   // un'altra (evita di rigiocare stati vecchi fuori ordine).
   const next = queue.filter((q) => q.bookingId !== op.bookingId);
-  next.push({ ...op, queuedAt: Date.now(), attempts: 0 });
+  next.push({
+    ...op,
+    queuedAt: Date.now(),
+    attempts: 0,
+    // Messaggio dell'ultimo errore reale, mostrato in UI così l'admin sa
+    // SUBITO perché la mirror è bloccata (es. "permission-denied" = login
+    // fleet scaduto/fallito) invece di doverlo cercare in console.
+    lastError: lastError?.message || lastError?.code || null,
+  });
   saveSyncQueue(next);
 }
 
@@ -233,7 +241,19 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
       if (syncMonitor) {
         syncMonitor.recordSync(duration, result.status === 'completed');
       }
-      
+
+      // BUG FIX: syncOrchestrator.syncBooking() non lancia mai un'eccezione,
+      // anche quando fallisce (cattura l'errore internamente e ritorna
+      // {status:'failed', error}). Senza questo controllo, il fallimento
+      // veniva silenziosamente trattato come successo da withRetry() /
+      // flushFleetSyncQueue(), che rimuoveva l'operazione dalla coda senza
+      // che la mirror fosse realmente scritta su ncc-fleet.
+      if (result.status !== 'completed') {
+        throw result.error instanceof Error
+          ? result.error
+          : new Error(result.error?.message || 'Sync orchestrator ha fallito senza dettagli');
+      }
+
       return result;
     } catch (error) {
       console.error('[Enhanced Sync] Failed, falling back to legacy:', error);
@@ -358,7 +378,11 @@ async function flushFleetSyncQueue() {
       await withRetry(() => applyFleetMirror(op), { retries: 3, baseDelayMs: 700 });
     } catch (e) {
       console.warn('[fleet-sync] retry dalla coda fallito per', op.bookingId, e);
-      stillFailing.push({ ...op, attempts: (op.attempts || 0) + 1 });
+      stillFailing.push({
+        ...op,
+        attempts: (op.attempts || 0) + 1,
+        lastError: e?.message || e?.code || 'Errore sconosciuto',
+      });
     }
   }
   saveSyncQueue(stillFailing);
@@ -792,7 +816,7 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
       });
     } catch (e) {
       console.warn('[fleet-sync] mirror fallita dopo 3 tentativi, accodata per retry automatico:', e);
-      enqueueFailedSync({ bookingId: b.id, willBeConfirmed, driverName });
+      enqueueFailedSync({ bookingId: b.id, willBeConfirmed, driverName }, e);
     }
   }
 
@@ -985,6 +1009,12 @@ async function installApp() {
         <button type="button" :disabled="flushingSyncQueue" @click="flushFleetSyncQueue">
           {{ flushingSyncQueue ? 'Sincronizzazione…' : 'Riprova ora' }}
         </button>
+        <ul class="admin-fleet-warning-details">
+          <li v-for="op in pendingFleetSyncQueue" :key="op.id || op.bookingId">
+            #{{ op.bookingId }} — {{ op.lastError || 'nessun dettaglio ancora' }}
+            <span v-if="op.attempts">({{ op.attempts }} tentativi)</span>
+          </li>
+        </ul>
       </div>
 
       <div v-if="showIosHelp" class="admin-modal-overlay" @click.self="showIosHelp = false">

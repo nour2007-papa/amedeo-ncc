@@ -51,6 +51,12 @@ html,body{background:var(--ink);}
   background:#3a2420; color:#e5877e; border-bottom:1px solid #5a3a35;
   padding:10px 24px; font-size:0.8rem; line-height:1.4;
 }
+.admin-fleet-warning-details{
+  list-style:none; margin:6px 0 0; padding:0; opacity:0.85;
+}
+.admin-fleet-warning-details li{
+  padding:2px 0; font-size:0.75rem; font-family:monospace;
+}
 
 .admin-header{
   display:flex; align-items:center; justify-content:space-between;

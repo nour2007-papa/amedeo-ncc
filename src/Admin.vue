@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import { fleetDb, fleetAuth } from './firebase-fleet.js';
+import { setupSyncOrchestrator, SyncQueueManager, SyncMonitor, setupRealtimeSyncListener } from './sync-utils.js';
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -31,18 +32,139 @@ const accessDenied = ref(false);
 const fleetAuthStatus = ref('pending'); // 'pending' | 'ok' | 'error' | 'unconfigured'
 let unsubAuth = null;
 
-// ---------- Retry mechanism per la mirror verso ncc-fleet ----------
-// Il mirror delle prenotazioni CONFERMATE (a differenza di quello dei
-// contatti pending, che passa da /api/sync-pending con retry server-side)
-// avviene client-side in performToggle(). Se fallisce (rete instabile,
-// sessione fleetAuth scaduta a metà operazione, ecc.) l'operazione non va
-// persa: viene ritentata subito con backoff, e se anche questo fallisce
-// viene salvata in un "coda" locale (localStorage) e ritentata automaticamente
-// al prossimo login riuscito su ncc-fleet o al click su "Riprova ora".
-const FLEET_SYNC_QUEUE_KEY = 'amedeoFleetSyncQueue';
-const pendingFleetSyncQueue = ref(loadSyncQueue());
-const flushingSyncQueue = ref(false);
+// ---------- Enhanced Sync System with Orchestrator ----------
+// Sistema di sincronizzazione migliorato con SyncOrchestrator,
+// SyncQueueManager, e SyncMonitor per gestire meglio la mirror verso
+// ncc-fleet con retry automatico, conflict resolution, e monitoring.
+let syncOrchestrator = null;
+let syncQueueManager = null;
+let syncMonitor = null;
+let realtimeSyncUnsubscribe = null;
 
+const syncMetrics = ref({
+  totalSyncs: 0,
+  successfulSyncs: 0,
+  failedSyncs: 0,
+  successRate: 0,
+  averageSyncTime: 0,
+  lastSyncTime: null,
+});
+
+const syncQueueStatus = ref({
+  pending: 0,
+  processing: 0,
+  failed: 0,
+  completed: 0,
+});
+
+// ---------- Enhanced Sync System Initialization ----------
+function initializeEnhancedSync() {
+  if (!fleetDb) {
+    console.warn('[Admin] Cannot initialize enhanced sync: fleetDb not available');
+    return;
+  }
+
+  try {
+    // Setup Sync Orchestrator
+    const { orchestrator, config } = setupSyncOrchestrator(db, fleetDb, {
+      retryConfig: {
+        maxRetries: 5,
+        baseDelayMs: 1000,
+        maxDelayMs: 30000,
+      },
+      enableRealtimeSync: true,
+      enableConflictResolution: true,
+      logLevel: 'info',
+    });
+    syncOrchestrator = orchestrator;
+
+    // Setup Sync Queue Manager
+    syncQueueManager = new SyncQueueManager('amedeoAdminSyncQueue');
+
+    // Setup Sync Monitor
+    syncMonitor = new SyncMonitor();
+
+    // Setup Real-time Sync Listener
+    realtimeSyncUnsubscribe = setupRealtimeSyncListener(db, syncOrchestrator, {
+      collectionName: 'bookings',
+      debounceMs: 2000,
+      onSyncStart: (bookingIds) => {
+        console.log('[Admin] Real-time sync started for:', bookingIds);
+      },
+      onSyncComplete: (results) => {
+        console.log('[Admin] Real-time sync completed:', results);
+        updateSyncMetrics(results);
+      },
+      onSyncError: (error) => {
+        console.error('[Admin] Real-time sync error:', error);
+      },
+    });
+
+    // Update queue status periodically
+    setInterval(updateSyncQueueStatus, 5000);
+
+    console.log('[Admin] Enhanced sync system initialized successfully');
+  } catch (error) {
+    console.error('[Admin] Failed to initialize enhanced sync:', error);
+  }
+}
+
+function updateSyncMetrics(results) {
+  if (!syncMonitor) return;
+
+  const totalDuration = results.reduce((sum, r) => {
+    if (r.value && r.value.duration) return sum + r.value.duration;
+    return sum;
+  }, 0);
+
+  const successfulCount = results.filter(r => r.status === 'fulfilled').length;
+  const failedCount = results.filter(r => r.status === 'rejected').length;
+
+  syncMonitor.recordSync(totalDuration / results.length, successfulCount > failedCount);
+
+  const metrics = syncMonitor.getMetrics();
+  syncMetrics.value = {
+    totalSyncs: metrics.totalSyncs,
+    successfulSyncs: metrics.successfulSyncs,
+    failedSyncs: metrics.failedSyncs,
+    successRate: metrics.successRate,
+    averageSyncTime: metrics.averageSyncTime,
+    lastSyncTime: metrics.lastSyncTime,
+  };
+}
+
+function updateSyncQueueStatus() {
+  if (!syncQueueManager) return;
+
+  const queue = syncQueueManager.getQueue();
+  syncQueueStatus.value = {
+    pending: queue.filter(op => op.status === 'pending').length,
+    processing: queue.filter(op => op.status === 'processing').length,
+    failed: queue.filter(op => op.status === 'failed').length,
+    completed: queue.filter(op => op.status === 'completed').length,
+  };
+}
+
+function cleanupEnhancedSync() {
+  if (realtimeSyncUnsubscribe) {
+    realtimeSyncUnsubscribe();
+    realtimeSyncUnsubscribe = null;
+  }
+  if (syncOrchestrator) {
+    syncOrchestrator.cleanup();
+    syncOrchestrator = null;
+  }
+  if (syncQueueManager) {
+    syncQueueManager.clearAll();
+    syncQueueManager = null;
+  }
+  if (syncMonitor) {
+    syncMonitor.resetMetrics();
+    syncMonitor = null;
+  }
+}
+
+// ---------- Legacy Sync Queue Functions (compatibilità) ----------
 function loadSyncQueue() {
   try {
     const raw = localStorage.getItem(FLEET_SYNC_QUEUE_KEY);
@@ -96,6 +218,28 @@ async function withRetry(fn, { retries = 3, baseDelayMs = 500 } = {}) {
 // il fallimento originale. Se la prenotazione è stata cancellata nel
 // frattempo, non c'è nulla da specchiare: esce senza errore.
 async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
+  // Use enhanced sync orchestrator if available
+  if (syncOrchestrator) {
+    try {
+      const startTime = Date.now();
+      const result = await syncOrchestrator.syncBooking(bookingId, {
+        driverName,
+        willBeConfirmed,
+      });
+      
+      const duration = Date.now() - startTime;
+      if (syncMonitor) {
+        syncMonitor.recordSync(duration, result.status === 'completed');
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[Enhanced Sync] Failed, falling back to legacy:', error);
+      // Fallback to legacy implementation
+    }
+  }
+
+  // Legacy implementation (保持了原有逻辑作为后备)
   if (!fleetDb) throw new Error('fleetDb non configurato');
   const bookingRef = doc(db, 'bookings', bookingId);
   const bookingSnap = await getDoc(bookingRef);
@@ -290,6 +434,7 @@ onMounted(() => {
       user.value = null;
       authLoading.value = false;
       unsubscribeBookings();
+      cleanupEnhancedSync(); // Cleanup sync on access denied
       return;
     }
     accessDenied.value = false;
@@ -297,8 +442,13 @@ onMounted(() => {
     authLoading.value = false;
     if (u) {
       subscribeBookings();
+      // Initialize enhanced sync when admin logs in
+      if (fleetAuthStatus.value === 'ok') {
+        initializeEnhancedSync();
+      }
     } else {
       unsubscribeBookings();
+      cleanupEnhancedSync(); // Cleanup sync on logout
     }
   });
 
@@ -312,8 +462,11 @@ onMounted(() => {
         // Appena la sessione fleet è di nuovo attiva, ritenta in automatico
         // qualunque mirror rimasta in coda da un fallimento precedente.
         flushFleetSyncQueue();
+        // Initialize enhanced sync when fleet auth becomes available
+        initializeEnhancedSync();
       } else if (fleetAuthStatus.value === 'ok') {
         fleetAuthStatus.value = 'pending';
+        cleanupEnhancedSync(); // Cleanup when fleet auth is lost
       }
     });
   } else {
@@ -324,6 +477,7 @@ onUnmounted(() => {
   unsubAuth && unsubAuth();
   unsubFleetAuth && unsubFleetAuth();
   unsubscribeBookings();
+  cleanupEnhancedSync(); // Ensure cleanup on component unmount
 });
 
 function isMobileDevice() {

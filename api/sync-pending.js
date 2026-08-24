@@ -12,6 +12,7 @@
 //   (Git Bash)  base64 -w 0 nome-file.json
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { applySecurityMiddleware } from './security-middleware.js';
 
 function getAdminApp(name, envVar) {
   const existing = getApps().find((a) => a.name === name);
@@ -26,6 +27,11 @@ const MAX_RETRIES = 3;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export default async function handler(req, res) {
+  // تطبيق security middleware
+  if (!applySecurityMiddleware(req, res)) {
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;

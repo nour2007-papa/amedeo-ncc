@@ -329,7 +329,7 @@ onUnmounted(() => {
   </div>
 </section>
 
-<section class="stats wrap">
+<section class="stats wrap" aria-label="Statistiche servizio Grifone NCC">
   <div class="stat"><b>24/7</b><span>{{ t.stat1 }}</span></div>
   <div class="stat"><b>LOMBARDIA → ITA/EU</b><span>{{ t.stat2 }}</span></div>
   <div class="stat"><b>&lt;8 min</b><span>{{ t.stat3 }}</span></div>
@@ -401,37 +401,54 @@ onUnmounted(() => {
   </div>
 </section>
 
-<section class="section wrap" id="contatti">
+<section class="section wrap" id="contatti" aria-labelledby="contact-title">
   <div class="section-head reveal" v-reveal>
-    <h2>{{ t.contact_title }}</h2>
+    <h2 id="contact-title">{{ t.contact_title }}</h2>
     <div class="tag mono">{{ t.contact_tag }}</div>
   </div>
   <div class="contact-grid">
-    <BookingForm :db="db" :whatsapp-number="WHATSAPP_NUMBER" :lang="currentLang" brand-name="Grifone NCC" :prefill="bookingPrefill" />
-    <div>
-      <div class="info-line"><span>{{ t.i_phone }}</span><span><a :href="`tel:+${WHATSAPP_NUMBER}`" style="color:var(--brass-bright);text-decoration:none;">+39 352 000 3122</a></span></div>
-      <div class="info-line"><span>{{ t.i_whatsapp }}</span><span><a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" style="color:var(--brass-bright);text-decoration:none;">+39 352 000 3122</a></span></div>
-      <div class="info-line"><span>{{ t.i_mail }}</span><span><a href="mailto:amedeo018@libero.it" style="color:var(--brass-bright);text-decoration:none;">amedeo018@libero.it</a></span></div>
-      <div class="info-line"><span>{{ t.i_area }}</span><span>LOMBARDIA → ITALIA / EUROPA</span></div>
-      <div class="info-line"><span>{{ t.i_hours }}</span><span>24/7</span></div>
+    <div class="booking-form-container">
+      <BookingForm :db="db" :whatsapp-number="WHATSAPP_NUMBER" :lang="currentLang" brand-name="Grifone NCC" :prefill="bookingPrefill" />
+    </div>
+    <div class="contact-info">
+      <div class="info-line">
+        <span>{{ t.i_phone }}</span>
+        <span><a :href="`tel:+${WHATSAPP_NUMBER}`" style="color:var(--brass-bright);text-decoration:none;" aria-label="Chiama il numero +39 352 000 3122">+39 352 000 3122</a></span>
+      </div>
+      <div class="info-line">
+        <span>{{ t.i_whatsapp }}</span>
+        <span><a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" style="color:var(--brass-bright);text-decoration:none;" aria-label="Scrivi su WhatsApp al numero +39 352 000 3122">+39 352 000 3122</a></span>
+      </div>
+      <div class="info-line">
+        <span>{{ t.i_mail }}</span>
+        <span><a href="mailto:amedeo018@libero.it" style="color:var(--brass-bright);text-decoration:none;" aria-label="Invia email a amedeo018@libero.it">amedeo018@libero.it</a></span>
+      </div>
+      <div class="info-line">
+        <span>{{ t.i_area }}</span>
+        <span>LOMBARDIA → ITALIA / EUROPA</span>
+      </div>
+      <div class="info-line">
+        <span>{{ t.i_hours }}</span>
+        <span>24/7</span>
+      </div>
 
-      <div class="payments-box">
+      <div class="payments-box" role="region" aria-label="Metodi di pagamento accettati">
         <div class="payments-title">{{ t.pay_title }}</div>
-        <div class="payment-badges">
-          <div class="pay-card">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        <div class="payment-badges" role="list">
+          <div class="pay-card" role="listitem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
             <span>{{ t.pay_cash }}</span>
           </div>
-          <div class="pay-card">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          <div class="pay-card" role="listitem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
             <span>{{ t.pay_card }}</span>
           </div>
-          <div class="pay-card">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12l3 3 5-5"/></svg>
+          <div class="pay-card" role="listitem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12l3 3 5-5"/></svg>
             <span>{{ t.pay_paypal }}</span>
           </div>
-          <div class="pay-card">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-4h6v4"/></svg>
+          <div class="pay-card" role="listitem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-4h6v4"/></svg>
             <span>{{ t.pay_bank }}</span>
           </div>
         </div>
@@ -443,27 +460,33 @@ onUnmounted(() => {
 <!-- ⚠️ Sezione recensioni rimossa: recensioni inventate = rischio legale (Codice
      del Consumo) e di reputazione. Rimettila quando avrai recensioni vere. -->
 
-<footer class="wrap">
+<footer class="wrap" role="contentinfo">
   <div class="footer-inner">
     <div class="footer-col">
       <h4>{{ t.foot_nav }}</h4>
-      <a href="#servizi">{{ t.nav_services }}</a>
-      <a href="#flotta">{{ t.nav_fleet }}</a>
-      <a href="#video">{{ t.nav_video }}</a>
-      <a href="#viaggi">{{ t.nav_trips }}</a>
-      <a href="#contatti">{{ t.nav_contact }}</a>
+      <nav aria-label="Navigazione footer">
+        <a href="#servizi">{{ t.nav_services }}</a>
+        <a href="#flotta">{{ t.nav_fleet }}</a>
+        <a href="#video">{{ t.nav_video }}</a>
+        <a href="#viaggi">{{ t.nav_trips }}</a>
+        <a href="#contatti">{{ t.nav_contact }}</a>
+      </nav>
     </div>
     <div class="footer-col">
       <h4>{{ t.foot_legal }}</h4>
-      <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_privacy }}</a>
-      <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_cookies }}</a>
-      <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_terms }}</a>
+      <nav aria-label="Link legali">
+        <a href="#" @click.prevent="openPrivacyModal" aria-label="Apri informativa privacy">{{ t.foot_privacy }}</a>
+        <a href="#" @click.prevent="openPrivacyModal" aria-label="Apri informativa cookie">{{ t.foot_cookies }}</a>
+        <a href="#" @click.prevent="openPrivacyModal" aria-label="Apri termini e condizioni">{{ t.foot_terms }}</a>
+      </nav>
     </div>
     <div class="footer-col">
       <h4>{{ t.foot_contact_title }}</h4>
-      <a :href="`tel:+${WHATSAPP_NUMBER}`">+39 352 000 3122</a>
-      <a href="mailto:amedeo018@libero.it">amedeo018@libero.it</a>
-      <a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener">WhatsApp</a>
+      <nav aria-label="Contatti diretti">
+        <a :href="`tel:+${WHATSAPP_NUMBER}`" aria-label="Chiama il numero +39 352 000 3122">+39 352 000 3122</a>
+        <a href="mailto:amedeo018@libero.it" aria-label="Invia email a amedeo018@libero.it">amedeo018@libero.it</a>
+        <a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" aria-label="Scrivi su WhatsApp">WhatsApp</a>
+      </nav>
     </div>
   </div>
   <div class="footer-bottom">
@@ -479,10 +502,10 @@ onUnmounted(() => {
 </a>
 
 <!-- PRIVACY MODAL -->
-<div class="modal-overlay" :class="{ open: privacyOpen }" @click.self="closePrivacyModal">
-  <div class="modal-box">
-    <button class="modal-close" @click="closePrivacyModal" aria-label="Chiudi">&#10005;</button>
-    <h3>{{ t.privacy_title }}</h3>
+<div class="modal-overlay" :class="{ open: privacyOpen }" @click.self="closePrivacyModal" role="dialog" aria-modal="true" aria-labelledby="privacy-title">
+  <div class="modal-box" role="document">
+    <button class="modal-close" @click="closePrivacyModal" aria-label="Chiudi la finestra privacy">&#10005;</button>
+    <h3 id="privacy-title">{{ t.privacy_title }}</h3>
     <p>{{ t.privacy_p1 }}</p>
     <p>{{ t.privacy_p2 }}</p>
     <p v-html="t.privacy_p3"></p>
@@ -496,11 +519,11 @@ onUnmounted(() => {
 </div>
 
 <!-- COOKIE BANNER -->
-<div class="cookie-banner" :class="{ visible: cookieVisible }">
+<div class="cookie-banner" :class="{ visible: cookieVisible }" role="alert" aria-live="polite">
   <span v-html="t.cookie_text"></span>
   <div class="cookie-btns">
-    <button @click="acceptCookies">{{ t.cookie_accept }}</button>
-    <button @click="acceptCookies">{{ t.cookie_dismiss }}</button>
+    <button @click="acceptCookies" aria-label="Accetta i cookie">{{ t.cookie_accept }}</button>
+    <button @click="acceptCookies" aria-label="Chiudi il banner cookie">{{ t.cookie_dismiss }}</button>
   </div>
 </div>
 </template>
@@ -719,6 +742,8 @@ onUnmounted(() => {
 
   /* CONTACT */
   .contact-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:60px;}
+  .booking-form-container{display:flex;flex-direction:column;}
+  .contact-info{display:flex;flex-direction:column;gap:8px;}
   .contact-grid form{display:flex;flex-direction:column;gap:16px;}
   input,select,textarea{
     background:var(--surface);border:1px solid var(--line);color:var(--paper);

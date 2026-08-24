@@ -9,6 +9,7 @@
 //   SITE_SERVICE_ACCOUNT_KEY, FLEET_SERVICE_ACCOUNT_KEY
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { applySecurityMiddleware } from './security-middleware.js';
 
 function getAdminApp(name, envVar) {
   const existing = getApps().find((a) => a.name === name);
@@ -61,6 +62,11 @@ function buildFleetNote(b) {
 }
 
 export default async function handler(req, res) {
+  // تطبيق security middleware
+  if (!applySecurityMiddleware(req, res)) {
+    return;
+  }
+
   const params = req.method === 'GET' ? req.query : (req.body || {});
   const { bookingId, token } = params;
 

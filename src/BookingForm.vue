@@ -20,6 +20,7 @@
 import { reactive, ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { sanitizeInput, validateName, validatePhone, validateDate, validateFlightNumber, validateNumberPeople, validateNumberBags } from './validation.js';
+import { SyncQueueManager, generateSyncId } from './sync-utils.js';
 
 const props = defineProps({
   db: { type: Object, default: null },           // istanza Firestore del sito ospitante (opzionale)
@@ -312,6 +313,9 @@ const note = ref(''); // contesto automatico, non un campo del form
 const showSuccess = ref(false);
 const sending = ref(false);
 
+// Sync Queue Manager for offline resilience
+const syncQueue = new SyncQueueManager('amedeoBookingSyncQueue');
+
 const showFlightField = computed(() => form.tipoServizio === 'aeroporto');
 
 /* ---------- Dropdown prefisso telefonico con bandiere (invariato dall'originale) ---------- */
@@ -425,23 +429,46 @@ async function saveToFirestore(snapshot) {
   // Best-effort e non bloccante: se fallisce (rete, API non configurata),
   // la prenotazione sul sito resta comunque valida. La mirror verrà creata
   // comunque più tardi quando l'admin conferma (vedi Admin.vue).
+  // Enhanced with sync queue for offline resilience
+  const syncOperation = {
+    bookingId: docRef.id,
+    name: snapshot.name,
+    country: snapshot.country,
+    phone: snapshot.phone,
+    service: TIPI_SERVIZIO.find(s => s.id === snapshot.tipoServizio)?.it || snapshot.tipoServizio,
+    serviceDate: snapshot.dataOra ? snapshot.dataOra.slice(0, 10) : '',
+    hotel: snapshot.destinazione || null,
+    flight: snapshot.volo || null,
+    people: snapshot.passeggeri || null,
+    bags: snapshot.bagagli || null,
+    details: note.value || null,
+  };
+
+  // Add to sync queue first for resilience
+  syncQueue.enqueue({
+    bookingId: docRef.id,
+    operation: 'sync-pending',
+    data: syncOperation,
+    options: { priority: 'high' },
+  });
+
   fetch('/api/sync-pending', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      bookingId: docRef.id,
-      name: snapshot.name,
-      country: snapshot.country,
-      phone: snapshot.phone,
-      service: TIPI_SERVIZIO.find(s => s.id === snapshot.tipoServizio)?.it || snapshot.tipoServizio,
-      serviceDate: snapshot.dataOra ? snapshot.dataOra.slice(0, 10) : '',
-      hotel: snapshot.destinazione || null,
-      flight: snapshot.volo || null,
-      people: snapshot.passeggeri || null,
-      bags: snapshot.bagagli || null,
-      details: note.value || null,
-    }),
-  }).catch((e) => console.warn('[sync-pending] chiamata fallita (non bloccante):', e));
+    body: JSON.stringify(syncOperation),
+  })
+    .then((response) => {
+      if (response.ok) {
+        // Remove from queue on success
+        syncQueue.clearCompleted();
+      } else {
+        console.warn('[sync-pending] non-successful response:', response.status);
+      }
+    })
+    .catch((e) => {
+      console.warn('[sync-pending] chiamata fallita (non bloccante, rimane in coda):', e);
+      // Operation remains in queue for retry
+    });
 
   return docRef;
 }

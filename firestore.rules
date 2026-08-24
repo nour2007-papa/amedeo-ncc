@@ -1,9 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // استخدام متغيرات البيئة للبريد الإداري
+    // يجب تعيينه في Firebase Console: Firestore > Rules > Configuration
     function isAdmin() {
+      const adminEmail = get(/databases/$(database)/documents/config/settings).data.adminEmail;
       return request.auth != null
-        && request.auth.token.email == 'nour2007papa@gmail.com';
+        && request.auth.token.email == adminEmail;
     }
     match /bookings/{bookingId} {
       // الزائر يستطيع إنشاء طلب جديد فقط، ولا يستطيع القراءة أو التعديل أو الحذف.
@@ -58,6 +61,12 @@ service cloud.firestore {
     }
     match /{document=**} {
       allow read, write: if false;
+    }
+    
+    // Configuration collection for settings
+    match /config/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

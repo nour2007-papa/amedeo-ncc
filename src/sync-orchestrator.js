@@ -1,0 +1,580 @@
+// sync-orchestrator.js - مركزية منطق المزامنة بين amedeo-ncc و ncc-fleet
+// يحتوي على:
+// - Sync Orchestrator: منسق مزامنة مركزي
+// - Status Mapper: معالج حالات الرحلات
+// - Conflict Resolver: محلل التعارضات
+// - Error Handler: معالج الأخطاء المتقدم
+
+import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { QueryOptimizer, PerformanceMetrics, debounce } from './performance-optimizer.js';
+
+/**
+ * Status Mapper - معالج حالات الرحلات بين النظامين
+ */
+export const STATUS_MAPPER = {
+  // من amedeo-ncc إلى ncc-fleet
+  toFleet: {
+    pending: 'nuovo_contatto',
+    confirmed: 'confermato',
+    confirmed_with_driver: 'autista_assegnato',
+    cancelled: 'annullato',
+    modified: 'nuovo_contatto', // عند التعديل يعود للمراجعة
+  },
+  // من ncc-fleet إلى amedeo-ncc
+  toSite: {
+    nuovo_contatto: false,
+    confermato: true,
+    autista_assegnato: true,
+    annullato: false,
+  },
+};
+
+/**
+ * Booking Sync States - حالات المزامنة
+ */
+export const SYNC_STATES = {
+  PENDING: 'pending',
+  SYNCING: 'syncing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  CONFLICT: 'conflict',
+};
+
+/**
+ * Sync Orchestrator - منسق مزامنة مركزي
+ */
+export class SyncOrchestrator {
+  constructor(siteDb, fleetDb) {
+    this.siteDb = siteDb;
+    this.fleetDb = fleetDb;
+    this.syncQueue = new Map(); // قائمة انتظار للمزامنة
+    this.activeSyncs = new Set(); // عمليات المزامنة النشطة
+    this.retryConfig = {
+      maxRetries: 5,
+      baseDelayMs: 1000,
+      maxDelayMs: 30000,
+    };
+    
+    // Performance optimization
+    this.queryOptimizer = new QueryOptimizer(siteDb);
+    this.fleetQueryOptimizer = new QueryOptimizer(fleetDb);
+    this.metrics = new PerformanceMetrics();
+  }
+
+  /**
+   * مزامنة رحلة واحدة مع آلية إعادة المحاولة
+   */
+  async syncBooking(bookingId, options = {}) {
+    const syncId = `${bookingId}-${Date.now()}`;
+    const startTime = Date.now();
+    
+    if (this.activeSyncs.has(bookingId)) {
+      console.log(`[SyncOrchestrator] Sync already in progress for ${bookingId}`);
+      return { status: SYNC_STATES.SYNCING, syncId };
+    }
+
+    this.activeSyncs.add(bookingId);
+    
+    try {
+      const result = await this.withExponentialBackoff(
+        () => this.performSync(bookingId, options),
+        this.retryConfig
+      );
+      
+      const duration = Date.now() - startTime;
+      this.metrics.recordOperation('syncBooking', duration, true);
+      
+      return { status: SYNC_STATES.COMPLETED, syncId, result, duration };
+    } catch (error) {
+      console.error(`[SyncOrchestrator] Sync failed for ${bookingId}:`, error);
+      const duration = Date.now() - startTime;
+      this.metrics.recordOperation('syncBooking', duration, false);
+      return { status: SYNC_STATES.FAILED, syncId, error, duration };
+    } finally {
+      this.activeSyncs.delete(bookingId);
+    }
+  }
+
+  /**
+   * تنفيذ المزامنة الفعلية
+   */
+  async performSync(bookingId, options) {
+    const bookingRef = doc(this.siteDb, 'bookings', bookingId);
+    const bookingSnap = await getDoc(bookingRef);
+    
+    if (!bookingSnap.exists()) {
+      throw new Error(`Booking ${bookingId} not found`);
+    }
+
+    const booking = { id: bookingSnap.id, ...bookingSnap.data() };
+    
+    // تحديد حالة المزامنة المطلوبة
+    const syncAction = this.determineSyncAction(booking, options);
+    
+    switch (syncAction.action) {
+      case 'create':
+        return await this.createFleetMirror(booking);
+      case 'update':
+        return await this.updateFleetMirror(booking, syncAction.updates);
+      case 'delete':
+        return await this.deleteFleetMirror(booking);
+      case 'skip':
+        return { skipped: true, reason: syncAction.reason };
+      default:
+        throw new Error(`Unknown sync action: ${syncAction.action}`);
+    }
+  }
+
+  /**
+   * تحديد إجراء المزامنة المطلوب
+   */
+  determineSyncAction(booking, options) {
+    // إذا كان الملغى
+    if (booking.cancelledByClient) {
+      if (booking.fleetDocId) {
+        return { action: 'update', updates: { stato: 'annullato' } };
+      }
+      return { action: 'skip', reason: 'Cancelled booking without fleet mirror' };
+    }
+
+    // إذا لم يكن مؤكداً (pending)
+    if (!booking.confirmed) {
+      if (booking.fleetDocId) {
+        return { action: 'update', updates: { stato: 'nuovo_contatto' } };
+      }
+      return { action: 'create' };
+    }
+
+    // إذا كان مؤكداً
+    if (booking.confirmed) {
+      if (!booking.fleetDocId) {
+        return { action: 'create' };
+      }
+      
+      const updates = {
+        stato: options.driverName ? 'autista_assegnato' : 'confermato',
+      };
+      
+      if (options.driverName) {
+        updates.autista = options.driverName;
+      }
+      
+      return { action: 'update', updates };
+    }
+
+    return { action: 'skip', reason: 'No sync action determined' };
+  }
+
+  /**
+   * إنشاء mirror في ncc-fleet
+   */
+  async createFleetMirror(booking) {
+    const fleetData = this.buildFleetData(booking);
+    const fleetDoc = await addDoc(collection(this.fleetDb, 'prenotazioni'), fleetData);
+    
+    // تحديث booking بـ fleetDocId
+    await updateDoc(doc(this.siteDb, 'bookings', booking.id), {
+      fleetDocId: fleetDoc.id,
+      syncedAt: new Date().toISOString(),
+    });
+
+    // إنشاء trip إذا كان مؤكداً مع سائق
+    if (booking.confirmed && fleetData.autista) {
+      await this.createFleetTrip(booking, fleetDoc.id, fleetData);
+    }
+
+    return { fleetDocId: fleetDoc.id, created: true };
+  }
+
+  /**
+   * تحديث mirror في ncc-fleet
+   */
+  async updateFleetMirror(booking, updates) {
+    if (!booking.fleetDocId) {
+      throw new Error('Cannot update: fleetDocId missing');
+    }
+
+    const fleetRef = doc(this.fleetDb, 'prenotazioni', booking.fleetDocId);
+    
+    try {
+      await updateDoc(fleetRef, {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
+      
+      // تحديث booking
+      await updateDoc(doc(this.siteDb, 'bookings', booking.id), {
+        syncedAt: new Date().toISOString(),
+      });
+
+      return { fleetDocId: booking.fleetDocId, updated: true };
+    } catch (error) {
+      if (error.code === 'not-found') {
+        console.warn(`[SyncOrchestrator] Fleet doc ${booking.fleetDocId} not found, recreating`);
+        return await this.createFleetMirror(booking);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * حذف/إلغاء mirror في ncc-fleet
+   */
+  async deleteFleetMirror(booking) {
+    if (!booking.fleetDocId) {
+      return { skipped: true, reason: 'No fleet mirror to delete' };
+    }
+
+    await updateDoc(doc(this.fleetDb, 'prenotazioni', booking.fleetDocId), {
+      stato: 'annullato',
+      updatedAt: new Date().toISOString(),
+    });
+
+    return { fleetDocId: booking.fleetDocId, deleted: true };
+  }
+
+  /**
+   * إنشاء trip في ncc-fleet
+   */
+  async createFleetTrip(booking, fleetDocId, fleetData) {
+    if (booking.fleetTripId) {
+      return { skipped: true, reason: 'Trip already exists' };
+    }
+
+    const tripData = this.buildTripData(booking, fleetData);
+    const tripDoc = await addDoc(collection(this.fleetDb, 'trips'), tripData);
+    
+    await updateDoc(doc(this.siteDb, 'bookings', booking.id), {
+      fleetTripId: tripDoc.id,
+    });
+
+    return { fleetTripId: tripDoc.id, created: true };
+  }
+
+  /**
+   * بناء بيانات Fleet
+   */
+  buildFleetData(booking) {
+    const noteParts = [`Da sito agenzia · ${booking.service || ''}`];
+    if (booking.flight) noteParts.push(`Volo: ${booking.flight}`);
+    if (booking.people) noteParts.push(`Persone: ${booking.people}`);
+    if (booking.bags) noteParts.push(`Valigie: ${booking.bags}`);
+    if (booking.details) noteParts.push(booking.details);
+
+    return {
+      cliente: booking.name || '',
+      telefono: `${booking.country || ''} ${booking.phone || ''}`.trim(),
+      dataOra: booking.serviceDate ? `${booking.serviceDate}T00:00:00` : new Date().toISOString(),
+      zona: booking.zona || 'Sito agenzia',
+      destinazione: booking.hotel || booking.service || '',
+      veicolo: '',
+      autista: '',
+      stato: STATUS_MAPPER.toFleet.pending,
+      note: noteParts.join(' | '),
+      createdAt: new Date().toISOString(),
+      reminderSent: false,
+    };
+  }
+
+  /**
+   * بناء بيانات Trip
+   */
+  buildTripData(booking, fleetData) {
+    const pickupTime = booking.dataOra && booking.dataOra.includes('T') 
+      ? booking.dataOra.split('T')[1].slice(0, 5) 
+      : '';
+
+    const tripNoteParts = [`Da sito agenzia · Autista: ${fleetData.autista}`];
+    if (booking.flight) tripNoteParts.push(`Volo: ${booking.flight}`);
+    if (booking.people) tripNoteParts.push(`Persone: ${booking.people}`);
+    if (booking.bags) tripNoteParts.push(`Valigie: ${booking.bags}`);
+    if (booking.details) tripNoteParts.push(booking.details);
+
+    return {
+      date: booking.serviceDate || new Date().toISOString().slice(0, 10),
+      time: pickupTime,
+      carId: '', // سيتم تحديثه عند ربط السائق
+      route: `${booking.zona || 'Sito agenzia'} → ${booking.hotel || booking.service || ''}`,
+      fare: 0,
+      payment: '',
+      notes: tripNoteParts.join(' | '),
+    };
+  }
+
+  /**
+   * Exponential Backoff مع retry
+   */
+  async withExponentialBackoff(fn, config) {
+    const { maxRetries, baseDelayMs, maxDelayMs } = config;
+    let lastError;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        
+        if (attempt === maxRetries) {
+          throw error;
+        }
+
+        const delay = Math.min(
+          baseDelayMs * Math.pow(2, attempt - 1),
+          maxDelayMs
+        );
+        
+        console.log(`[SyncOrchestrator] Retry ${attempt}/${maxRetries} after ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
+   * مزامنة دفعية
+   */
+  async syncBatch(bookingIds, options = {}) {
+    const results = [];
+    const batchSize = options.batchSize || 5;
+
+    for (let i = 0; i < bookingIds.length; i += batchSize) {
+      const batch = bookingIds.slice(i, i + batchSize);
+      const batchResults = await Promise.allSettled(
+        batch.map(id => this.syncBooking(id, options))
+      );
+      
+      results.push(...batchResults.map((r, idx) => ({
+        bookingId: batch[idx],
+        status: r.status,
+        value: r.status === 'fulfilled' ? r.value : r.reason,
+      })));
+    }
+
+    return results;
+  }
+
+  /**
+   * تنظيف الموارد
+   */
+  cleanup() {
+    this.syncQueue.clear();
+    this.activeSyncs.clear();
+  }
+}
+
+/**
+ * Conflict Resolver - محلل التعارضات
+ */
+export class ConflictResolver {
+  constructor(siteDb, fleetDb) {
+    this.siteDb = siteDb;
+    this.fleetDb = fleetDb;
+  }
+
+  /**
+   * حل تعارض في البيانات
+   */
+  async resolveConflict(bookingId, conflictData) {
+    const bookingRef = doc(this.siteDb, 'bookings', bookingId);
+    const bookingSnap = await getDoc(bookingRef);
+    
+    if (!bookingSnap.exists()) {
+      throw new Error(`Booking ${bookingId} not found`);
+    }
+
+    const booking = { id: bookingSnap.id, ...bookingSnap.data() };
+    
+    // استراتيجية الحل: Last-Write-Wins مع تسجيل
+    const resolution = this.applyLastWriteWins(booking, conflictData);
+    
+    // تطبيق الحل
+    await updateDoc(bookingRef, resolution.siteUpdates);
+    
+    if (booking.fleetDocId && resolution.fleetUpdates) {
+      await updateDoc(
+        doc(this.fleetDb, 'prenotazioni', booking.fleetDocId),
+        resolution.fleetUpdates
+      );
+    }
+
+    return {
+      resolved: true,
+      strategy: 'last-write-wins',
+      applied: resolution,
+    };
+  }
+
+  /**
+   * تطبيق استراتيجية Last-Write-Wins
+   */
+  applyLastWriteWins(booking, conflictData) {
+    const siteUpdates = {};
+    const fleetUpdates = {};
+
+    // مقارنة الطوابع الزمنية
+    const siteTimestamp = new Date(booking.updatedAt || booking.createdAt).getTime();
+    const fleetTimestamp = new Date(conflictData.updatedAt || conflictData.createdAt).getTime();
+
+    if (fleetTimestamp > siteTimestamp) {
+      // Fleet data is newer
+      Object.assign(siteUpdates, this.mapFleetToSite(conflictData));
+      Object.assign(fleetUpdates, conflictData);
+    } else {
+      // Site data is newer or equal
+      Object.assign(fleetUpdates, this.mapSiteToFleet(booking));
+    }
+
+    return { siteUpdates, fleetUpdates };
+  }
+
+  /**
+   * تحويل بيانات Fleet إلى Site
+   */
+  mapFleetToSite(fleetData) {
+    return {
+      confirmed: STATUS_MAPPER.toSite[fleetData.stato] ?? false,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * تحويل بيانات Site إلى Fleet
+   */
+  mapSiteToFleet(siteData) {
+    return {
+      stato: STATUS_MAPPER.toFleet[siteData.confirmed ? 'confirmed' : 'pending'],
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * Error Handler - معالج الأخطاء المتقدم
+ */
+export class SyncErrorHandler {
+  constructor() {
+    this.errorLog = [];
+    this.circuitBreaker = {
+      isOpen: false,
+      failureCount: 0,
+      lastFailureTime: null,
+      threshold: 5,
+      resetTimeoutMs: 60000, // 1 minute
+    };
+  }
+
+  /**
+   * معالجة خطأ
+   */
+  handleError(error, context = {}) {
+    const errorEntry = {
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      code: error.code,
+      context,
+      severity: this.determineSeverity(error),
+    };
+
+    this.errorLog.push(errorEntry);
+    this.updateCircuitBreaker(error);
+
+    console.error('[SyncErrorHandler]', errorEntry);
+
+    return errorEntry;
+  }
+
+  /**
+   * تحديد خطورة الخطأ
+   */
+  determineSeverity(error) {
+    if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+      return 'critical';
+    }
+    if (error.code === 'not-found' || error.code === 'already-exists') {
+      return 'warning';
+    }
+    if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
+      return 'retry';
+    }
+    return 'error';
+  }
+
+  /**
+   * تحديث Circuit Breaker
+   */
+  updateCircuitBreaker(error) {
+    if (this.shouldTripCircuitBreaker(error)) {
+      this.circuitBreaker.failureCount++;
+      this.circuitBreaker.lastFailureTime = Date.now();
+
+      if (this.circuitBreaker.failureCount >= this.circuitBreaker.threshold) {
+        this.circuitBreaker.isOpen = true;
+        console.warn('[SyncErrorHandler] Circuit breaker opened');
+      }
+    }
+  }
+
+  /**
+   * تحديد ما إذا كان يجب فتح Circuit Breaker
+   */
+  shouldTripCircuitBreaker(error) {
+    const retryableErrors = ['unavailable', 'deadline-exceeded', 'resource-exhausted'];
+    return retryableErrors.includes(error.code);
+  }
+
+  /**
+   * التحقق من Circuit Breaker
+   */
+  isCircuitBreakerOpen() {
+    if (!this.circuitBreaker.isOpen) {
+      return false;
+    }
+
+    const timeSinceLastFailure = Date.now() - this.circuitBreaker.lastFailureTime;
+    if (timeSinceLastFailure > this.circuitBreaker.resetTimeoutMs) {
+      this.resetCircuitBreaker();
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * إعادة تعيين Circuit Breaker
+   */
+  resetCircuitBreaker() {
+    this.circuitBreaker = {
+      isOpen: false,
+      failureCount: 0,
+      lastFailureTime: null,
+      threshold: this.circuitBreaker.threshold,
+      resetTimeoutMs: this.circuitBreaker.resetTimeoutMs,
+    };
+    console.log('[SyncErrorHandler] Circuit breaker reset');
+  }
+
+  /**
+   * الحصول على سجل الأخطاء
+   */
+  getErrorLog(filters = {}) {
+    let filtered = this.errorLog;
+
+    if (filters.severity) {
+      filtered = filtered.filter(e => e.severity === filters.severity);
+    }
+
+    if (filters.since) {
+      filtered = filtered.filter(e => new Date(e.timestamp) >= new Date(filters.since));
+    }
+
+    return filtered;
+  }
+
+  /**
+   * مسح سجل الأخطاء
+   */
+  clearErrorLog() {
+    this.errorLog = [];
+  }
+}

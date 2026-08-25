@@ -7,6 +7,10 @@ import BookingForm from './BookingForm.vue';
 import griffinLogoLarge from './assets/griffin-logo-large.png';
 import { dict } from './i18n.js';
 import { services, fleet, trips, otherItalyImages, customTripImages } from './content.js';
+import { useVersionCheck } from './composables/useVersionCheck.js';
+
+/* Auto-reload الصفحة لما ديبلوي جديد يطلع، عشان نتجنب مشاكل الكاش القديم */
+useVersionCheck();
 
 /* =========================================================
    Firebase — saves each booking request to Firestore so it

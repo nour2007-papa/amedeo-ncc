@@ -104,6 +104,26 @@ export class SyncOrchestrator {
       const duration = Date.now() - startTime;
       this.metrics.recordOperation('syncBooking', duration, false);
       this.lastFailedAttemptAt.set(bookingId, Date.now());
+
+      // BUG DIAGNOSTIC: "Missing or insufficient permissions" da solo non dice
+      // CON QUALE account/progetto ha provato a scrivere. Arricchiamo il
+      // messaggio con l'email/UID effettivi del fleetAuth al momento del
+      // fallimento e il projectId del fleetDb, così è visibile direttamente
+      // nel banner sul telefono senza bisogno di DevTools.
+      if (error && error.code === 'permission-denied') {
+        try {
+          const fleetAuthMod = await import('firebase/auth');
+          const currentFleetUser = fleetAuthMod.getAuth(this.fleetDb.app).currentUser;
+          const projectId = this.fleetDb.app.options.projectId;
+          const diag = currentFleetUser
+            ? `uid=${currentFleetUser.uid} email=${currentFleetUser.email} verified=${currentFleetUser.emailVerified} project=${projectId}`
+            : `NESSUN utente autenticato su fleetAuth (progetto=${projectId})`;
+          error.message = `${error.message} [DEBUG: ${diag}]`;
+        } catch (diagErr) {
+          console.warn('[SyncOrchestrator] Diagnostica permission-denied fallita:', diagErr);
+        }
+      }
+
       return { status: SYNC_STATES.FAILED, syncId, error, duration };
     } finally {
       this.activeSyncs.delete(bookingId);

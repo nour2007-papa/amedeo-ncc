@@ -7,6 +7,7 @@
 
 import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { QueryOptimizer, PerformanceMetrics, debounce } from './performance-optimizer.js';
+import { fleetAuth } from './firebase-fleet.js';
 
 /**
  * Status Mapper - معالج حالات الرحلات بين النظامين
@@ -112,9 +113,8 @@ export class SyncOrchestrator {
       // nel banner sul telefono senza bisogno di DevTools.
       if (error && error.code === 'permission-denied') {
         try {
-          const fleetAuthMod = await import('firebase/auth');
-          const currentFleetUser = fleetAuthMod.getAuth(this.fleetDb.app).currentUser;
-          const projectId = this.fleetDb.app.options.projectId;
+          const currentFleetUser = fleetAuth ? fleetAuth.currentUser : null;
+          const projectId = this.fleetDb ? this.fleetDb.app.options.projectId : 'unknown';
           const diag = currentFleetUser
             ? `uid=${currentFleetUser.uid} email=${currentFleetUser.email} verified=${currentFleetUser.emailVerified} project=${projectId}`
             : `NESSUN utente autenticato su fleetAuth (progetto=${projectId})`;

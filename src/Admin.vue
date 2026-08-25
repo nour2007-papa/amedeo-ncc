@@ -249,6 +249,11 @@ async function withRetry(fn, { retries = 3, baseDelayMs = 500 } = {}) {
 // il fallimento originale. Se la prenotazione è stata cancellata nel
 // frattempo, non c'è nulla da specchiare: esce senza errore.
 async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
+  // Verifica dello stato fleetAuth prima di tentare la sincronizzazione
+  if (fleetAuthStatus.value !== 'ok') {
+    throw new Error(`Fleet auth non disponibile (stato: ${fleetAuthStatus.value}). Effettua il login su ncc-fleet.`);
+  }
+
   // Use enhanced sync orchestrator if available
   if (syncOrchestrator) {
     try {
@@ -257,7 +262,7 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
         driverName,
         willBeConfirmed,
       });
-      
+
       const duration = Date.now() - startTime;
       if (syncMonitor) {
         syncMonitor.recordSync(duration, result.status === 'completed');
@@ -552,6 +557,31 @@ async function loginFleet(emailValue, passwordValue) {
   }
 }
 
+// Funzione per tentare il re-login automatico su fleet quando permissions denied
+async function retryFleetAuth(emailValue, passwordValue) {
+  if (!fleetAuth || !emailValue || !passwordValue) {
+    return false;
+  }
+  try {
+    // Verifica se l'utente è ancora autenticato
+    if (fleetAuth.currentUser) {
+      // Tenta di refreshare il token
+      const token = await fleetAuth.currentUser.getIdToken(true);
+      if (token) {
+        fleetAuthStatus.value = 'ok';
+        return true;
+      }
+    }
+    // Se non funziona, prova a rifare il login
+    await loginFleet(emailValue, passwordValue);
+    return fleetAuthStatus.value === 'ok';
+  } catch (e) {
+    console.error('[fleetAuth] Retry fallito:', e);
+    fleetAuthStatus.value = 'error';
+    return false;
+  }
+}
+
 async function login() {
   loginError.value = '';
   accessDenied.value = false;
@@ -842,7 +872,32 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
       });
     } catch (e) {
       console.warn('[fleet-sync] mirror fallita dopo 3 tentativi, accodata per retry automatico:', e);
-      enqueueFailedSync({ bookingId: b.id, willBeConfirmed, driverName }, e);
+
+      // Se l'errore è permission-denied, tenta automaticamente il re-login su fleet
+      if (e.code === 'permission-denied' || e.message?.includes('permission-denied')) {
+        console.log('[fleet-sync] Permission denied detected, attempting automatic fleet re-auth');
+        const retrySuccess = await retryFleetAuth(email.value, password.value);
+        if (retrySuccess) {
+          // Se il re-login funziona, ritenta la sincronizzazione
+          try {
+            await withRetry(() => applyFleetMirror({ bookingId: b.id, willBeConfirmed, driverName }), {
+              retries: 2,
+              baseDelayMs: 500,
+            });
+            console.log('[fleet-sync] Sync completata dopo re-auth automatico');
+            return; // Successo dopo re-auth, non accodare
+          } catch (retryError) {
+            console.warn('[fleet-sync] Sync fallita anche dopo re-auth:', retryError);
+            enqueueFailedSync({ bookingId: b.id, willBeConfirmed, driverName }, retryError);
+          }
+        } else {
+          // Se il re-login fallisce, accoda per retry manuale
+          enqueueFailedSync({ bookingId: b.id, willBeConfirmed, driverName }, e);
+        }
+      } else {
+        // Per altri errori, accoda normalmente
+        enqueueFailedSync({ bookingId: b.id, willBeConfirmed, driverName }, e);
+      }
     }
   }
 

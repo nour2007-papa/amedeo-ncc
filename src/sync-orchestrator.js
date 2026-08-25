@@ -131,9 +131,38 @@ export class SyncOrchestrator {
   }
 
   /**
+   * ينتظر جاهزية fleetAuth الفعلية قبل أي كتابة على fleetDb
+   * (بدل ما نعتمد على currentUser مباشرة وهو لسه pending)
+   */
+  async waitForFleetAuth(timeoutMs = 8000) {
+    if (fleetAuth.currentUser) return fleetAuth.currentUser;
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        unsubscribe();
+        const err = new Error('Fleet auth non disponibile (stato: pending). Effettua il login su ncc-fleet.');
+        err.code = 'unauthenticated';
+        reject(err);
+      }, timeoutMs);
+
+      const unsubscribe = fleetAuth.onAuthStateChanged((user) => {
+        if (user) {
+          clearTimeout(timeout);
+          unsubscribe();
+          resolve(user);
+        }
+      });
+    });
+  }
+
+  /**
    * تنفيذ المزامنة الفعلية
    */
   async performSync(bookingId, options) {
+    // BUG FIX: كان بيكتب على fleetDb قبل ما fleetAuth يخلّص التحقق،
+    // فبيرجع permission-denied ويدخل cooldown حتى لو المستخدم مسجّل دخول فعليًا.
+    await this.waitForFleetAuth();
+
     const bookingRef = doc(this.siteDb, 'bookings', bookingId);
     const bookingSnap = await getDoc(bookingRef);
     

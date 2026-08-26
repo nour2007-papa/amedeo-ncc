@@ -303,6 +303,15 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
     return parts.join(' | ');
   };
 
+  // Ricerca del driver unificata: usata sia per il mirror in "prenotazioni"
+  // (autistaUid) sia per la corsa in "trips" (carId), invece di essere
+  // ripetuta due volte come in precedenza.
+  const matchedDriver = driverName
+    ? driversList.value.find(
+        (d) => d.name.trim().toLowerCase() === driverName.trim().toLowerCase()
+      )
+    : null;
+
   // Crea il documento gemello in "prenotazioni" e salva il suo id sulla
   // prenotazione originale (amedeo-ncc), così le volte successive si
   // aggiorna invece di duplicare.
@@ -319,6 +328,10 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
       // prenotazione risulta collegata al conducente reale e non solo
       // menzionata nelle note.
       autista: driverName || '',
+      // autistaUid è il campo che ncc-fleet usa realmente per il collegamento
+      // (query DriverPortal, filtri PrenotazioniTable, DriverMonthlyReport).
+      // Senza questo resta null e va assegnato a mano su ncc-fleet ogni volta.
+      autistaUid: matchedDriver?.authUid || null,
       // "autista_assegnato" è lo stato dedicato in ncc-fleet quando un
       // conducente è già assegnato alla corsa (vedi bookingConstants.js).
       stato: driverName ? 'autista_assegnato' : 'confermato',
@@ -333,12 +346,13 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
     await createFleetMirror();
   } else if (b.fleetDocId) {
     // Già specchiata in precedenza: aggiorna lo stato (confermato/annullato)
-    // e il nome autista se inserito/modificato alla riconferma.
+    // e il nome/uid autista se inserito/modificato alla riconferma.
     const fleetUpdates = {
       stato: willBeConfirmed ? (driverName ? 'autista_assegnato' : 'confermato') : 'annullato',
     };
     if (willBeConfirmed && driverName) {
       fleetUpdates.autista = driverName;
+      fleetUpdates.autistaUid = matchedDriver?.authUid || null;
       fleetUpdates.note = buildNoteParts();
     }
     try {
@@ -367,9 +381,6 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
   // presente; il prezzo (fare) non è raccolto dal sito, quindi resta a
   // 0 — va aggiornato manualmente in "Corse" quando noto.
   if (willBeConfirmed && driverName && !b.fleetTripId) {
-    const matchedDriver = driversList.value.find(
-      (d) => d.name.trim().toLowerCase() === driverName.trim().toLowerCase()
-    );
     const tripNoteParts = [`Da sito agenzia · Autista: ${driverName}`];
     if (b.flight) tripNoteParts.push(`Volo: ${b.flight}`);
     if (b.people) tripNoteParts.push(`Persone: ${b.people}`);
@@ -434,7 +445,7 @@ async function loadDriversList() {
     driversList.value = snap.docs
       .map((d) => d.data())
       .filter((e) => e.name)
-      .map((e) => ({ name: e.name, phone: e.phone || '', carId: e.carId || '' }));
+      .map((e) => ({ name: e.name, phone: e.phone || '', carId: e.carId || '', authUid: e.authUid || null }));
     driversListLoaded = true;
   } catch (e) {
     console.warn('Impossibile caricare la lista autisti da ncc-fleet:', e);

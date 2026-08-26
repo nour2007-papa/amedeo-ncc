@@ -4,7 +4,8 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import BookingForm from './BookingForm.vue';
-import griffinLogoLarge from './assets/griffin-logo-large.png';
+import griffinLogoLarge from './assets/griffin-logo-large.webp';
+import griffinLogoSmall from './assets/griffin-logo.webp';
 import { dict } from './i18n.js';
 import { services, fleet, trips, otherItalyImages, customTripImages } from './content.js';
 import { useVersionCheck } from './composables/useVersionCheck.js';
@@ -74,6 +75,21 @@ const boardRoutes = computed(() => [...t.value.routes, ...t.value.routes]);
 /* =========================================================
    Broken-image fallback with better error handling
    ========================================================= */
+/* =========================================================
+   Responsive images: le foto vengono da Unsplash con `w=1200`
+   fisso — su un telefono da 380px di larghezza scarichiamo comunque
+   l'immagine intera da 1200px inutilmente. Generiamo uno srcset con
+   3 larghezze (Unsplash le genera al volo, nessun servizio extra
+   richiesto) così il browser sceglie da solo il file più piccolo
+   adatto allo schermo.
+   ========================================================= */
+function imgSrcset(url) {
+  if (!url || !url.includes('images.unsplash.com')) return undefined;
+  const w = (n) => url.replace(/([?&])w=\d+/, `$1w=${n}`);
+  return `${w(480)} 480w, ${w(768)} 768w, ${w(1200)} 1200w`;
+}
+const CARD_IMG_SIZES = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px';
+
 function imgFallback(event) {
   const text = t.value.img_unavailable || 'IMAGE NOT AVAILABLE';
   const el = event.target;
@@ -257,7 +273,7 @@ onUnmounted(() => {
 <header role="banner">
   <nav class="wrap" role="navigation" aria-label="Navigazione principale">
     <div class="logo">
-      <img src="./assets/griffin-logo.png" alt="Grifone NCC - Logo autista privato Milano" style="height:38px;width:auto;" />
+      <img :src="griffinLogoSmall" alt="Grifone NCC - Logo autista privato Milano" width="101" height="120" style="height:38px;width:auto;" />
       <span class="logo-text">GRIFONE <b>NCC</b></span>
     </div>
     <div class="nav-links" :class="{ active: navOpen }">
@@ -299,6 +315,10 @@ onUnmounted(() => {
       aria-hidden="true"
       class="hero-griffin reveal delay-3"
       v-reveal
+      loading="lazy"
+      fetchpriority="low"
+      width="529"
+      height="627"
       :style="{ '--griffin-float': griffinOffset + 'px' }"
     >
 
@@ -362,7 +382,7 @@ onUnmounted(() => {
   </div>
   <div class="fleet" role="list" aria-label="Flotta Mercedes premium">
     <article class="car reveal" v-reveal v-for="c in fleet" :key="c.code" role="listitem">
-      <img class="car-photo" :src="c.photo" :alt="c.alt" loading="lazy" @error="imgFallback">
+      <img class="car-photo" :src="c.photo" :srcset="imgSrcset(c.photo)" :sizes="CARD_IMG_SIZES" :alt="c.alt" width="380" height="200" loading="lazy" decoding="async" @error="imgFallback">
       <div class="car-body">
         <div class="code">{{ c.code }}</div>
         <h4>{{ c.name }}</h4>
@@ -392,7 +412,7 @@ onUnmounted(() => {
   </div>
   <div class="fleet" role="list" aria-label="Viaggi consigliati con autista privato">
     <article class="car reveal" v-reveal v-for="trip in trips" :key="trip.code" role="listitem">
-      <img class="car-photo" :src="tripPhoto(trip)" :alt="trip.alt || t[trip.titleKey]" loading="lazy" @error="imgFallback">
+      <img class="car-photo" :src="tripPhoto(trip)" :srcset="imgSrcset(tripPhoto(trip))" :sizes="CARD_IMG_SIZES" :alt="trip.alt || t[trip.titleKey]" width="380" height="200" loading="lazy" decoding="async" @error="imgFallback">
       <div class="car-body">
         <div class="code">{{ trip.code }}</div>
         <h4>{{ t[trip.titleKey] }}</h4>
@@ -886,8 +906,9 @@ onUnmounted(() => {
     max-height:80vh;overflow-y:auto;padding:40px 36px;position:relative;
   }
   .modal-close{
-    position:absolute;top:16px;right:18px;background:none;border:none;
+    position:absolute;top:10px;right:12px;background:none;border:none;
     color:var(--steel);font-size:1.4rem;cursor:pointer;transition:color .2s;
+    width:44px;height:44px;display:flex;align-items:center;justify-content:center;
   }
   .modal-close:hover{color:var(--paper);}
   .modal-box h3{font-family:'Fraunces',serif;font-size:1.4rem;margin-bottom:18px;}
@@ -915,9 +936,31 @@ onUnmounted(() => {
       display:flex;flex-direction:column;position:absolute;top:100%;left:0;right:0;
       background:var(--surface);padding:20px 28px;border-bottom:1px solid var(--line);gap:16px;
     }
-    .menu-toggle{display:block;}
+    .nav-links.active a{padding:8px 0;} /* rende ogni link facilmente toccabile */
+    .menu-toggle{
+      display:flex;align-items:center;justify-content:center;
+      width:44px;height:44px;flex-shrink:0; /* area di tocco minima consigliata 44x44px */
+    }
+    .lang-switch button{padding:9px 12px;} /* prima 5px 10px: troppo piccolo per il dito */
     .contact-grid{grid-template-columns:1fr;}
     .section-head{flex-direction:column;align-items:flex-start;}
+
+    /* HERO: su desktop il padding verticale enorme (110/90px) ha senso
+       per bilanciare il griffone in overlay; su mobile è solo scroll
+       vuoto prima del contenuto utile, quindi lo riduciamo. */
+    .hero{padding:56px 0 40px;}
+    .hero p.sub{margin-top:18px;}
+    .cta-row{margin-top:28px;gap:12px;}
+    .cta-row .btn{flex:1;text-align:center;} /* pulsanti a tutta larghezza, facili da premere col pollice */
+    .search-box{margin-top:32px;padding:18px;}
+    .btn{padding:16px 24px;} /* garantisce un'altezza di tocco >44px */
+
+    /* iOS Safari fa zoom automatico su qualunque input con font-size
+       sotto i 16px: qui erano 0.9rem/14.4px sia nella ricerca hero
+       sia nel form di prenotazione. Forziamo 16px solo su mobile per
+       non ingrandire troppo il testo sui form desktop. */
+    .search-field input,.search-field select,
+    input,select,textarea{font-size:16px;}
   }
   @media(min-width:761px) and (max-width:1024px){
     .wrap{padding:0 20px;}

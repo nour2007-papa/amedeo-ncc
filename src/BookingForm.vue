@@ -667,7 +667,7 @@ async function submitBooking() {
 .bf-field-name { flex: 1 1 auto; }
 .bf-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .bf-gdpr { display: flex; align-items: flex-start; gap: 8px; font-size: .78rem; opacity: .85; }
-.bf-submit { padding: 12px; border-radius: 8px; border: none; background: #d9a441; color: #12151c; font-weight: 700; cursor: pointer; }
+.bf-submit { padding: 14px; min-height: 48px; border-radius: 8px; border: none; background: #d9a441; color: #12151c; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
 .bf-submit:disabled { opacity: .6; cursor: not-allowed; }
 .bf-success { color: #4caf6d; font-size: .85rem; }
 
@@ -699,8 +699,8 @@ async function submitBooking() {
 .country-search:focus{outline:none;}
 .country-list{max-height:260px;overflow-y:auto;}
 .country-item{
-  display:flex;align-items:center;gap:10px;width:100%;
-  padding:9px 14px;background:none;border:none;color:var(--paper,#EDEAE3);
+  display:flex;align-items:center;gap:10px;width:100%;min-height:44px;
+  padding:11px 14px;background:none;border:none;color:var(--paper,#EDEAE3);
   font-family:'Work Sans',sans-serif;font-size:0.86rem;text-align:left;
   cursor:pointer;
 }

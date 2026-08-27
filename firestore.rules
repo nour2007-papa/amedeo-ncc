@@ -64,8 +64,12 @@ service cloud.firestore {
     }
     
     // Configuration collection for settings
+    // كانت "allow read: if true" — ده بيكشف adminEmail لأي حد يستعلم مباشرة
+    // على Firestore REST/SDK من غير ما يكون مسجل دخول. isAdmin() بيستخدم
+    // get() هنا وده بيشتغل دايمًا بغض النظر عن قاعدة القراءة بتاعة المستند
+    // نفسه (سلوك قياسي في Firestore Rules)، فمفيش داعي القراءة تبقى عامة.
     match /config/{document=**} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
   }

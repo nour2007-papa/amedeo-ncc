@@ -22,14 +22,19 @@ function getAdminApp(name, envVar) {
 
 const WEBHOOK_SECRET = process.env.SYNC_WEBHOOK_SECRET;
 
-if (!WEBHOOK_SECRET) {
-  throw new Error("SYNC_WEBHOOK_SECRET environment variable is missing");
-}
-
 /**
  * التحقق من صحة Webhook signature باستخدام HMAC-SHA256
  */
 function verifyWebhookSignature(req) {
+  // لو المتغير البيئي مش مضبوط على Vercel، نرفض كل الطلبات بدل ما نستخدم
+  // قيمة افتراضية معروفة في الكود (كانت هنا ثغرة حرجة: fallback ثابت
+  // 'default-secret-change-in-production' كان بيسمح لأي حد يعرف الكود
+  // يوقّع طلبات صحيحة ويستخدم صلاحيات Admin SDK الكاملة).
+  if (!WEBHOOK_SECRET) {
+    console.error('[sync-webhook] SYNC_WEBHOOK_SECRET non configurato — richiesta rifiutata');
+    return false;
+  }
+
   const signature = req.headers['x-webhook-signature'];
   if (!signature) {
     console.warn('[sync-webhook] Missing webhook signature header');
@@ -43,10 +48,10 @@ function verifyWebhookSignature(req) {
       .update(payload)
       .digest('hex');
     
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    );
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSignature);
+    // timingSafeEqual يرمي خطأ لو الطولين مختلفين، فبنتحقق الأول
+    const isValid = sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
     
     if (!isValid) {
       console.warn('[sync-webhook] Invalid webhook signature');

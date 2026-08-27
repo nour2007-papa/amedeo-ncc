@@ -467,21 +467,18 @@ const WA_CONFIRM_TEXT = {
     title: '✅ Prenotazione confermata — Grifone NCC',
     hi: (name) => `Ciao ${name}, la tua richiesta è stata confermata.`,
     service: 'Servizio', date: 'Data', destination: 'Destinazione', driver: 'Autista',
-    editLink: 'Per modificare o annullare la prenotazione (entro 6 ore prima del ritiro)',
     thanks: 'Grazie per aver scelto Grifone NCC!',
   },
   en: {
     title: '✅ Booking confirmed — Grifone NCC',
     hi: (name) => `Hi ${name}, your request has been confirmed.`,
     service: 'Service', date: 'Date', destination: 'Destination', driver: 'Driver',
-    editLink: 'To edit or cancel your booking (up to 6 hours before pickup)',
     thanks: 'Thank you for choosing Grifone NCC!',
   },
   ar: {
     title: '✅ تم تأكيد الحجز — Grifone NCC',
     hi: (name) => `مرحبًا ${name}، تم تأكيد طلبك.`,
     service: 'الخدمة', date: 'التاريخ', destination: 'الوجهة', driver: 'السائق',
-    editLink: 'لتعديل الحجز أو إلغاؤه (حتى 6 ساعات قبل موعد الاستلام)',
     thanks: 'شكرًا لاختيارك Grifone NCC!',
   },
 };
@@ -925,7 +922,6 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
     if (b.serviceDate) lines.push(`${T.date}: ${b.serviceDate}`);
     if (b.hotel) lines.push(`${T.destination}: ${b.hotel}`);
     if (driverName) lines.push(`${T.driver}: ${driverName}`);
-    if (b.editToken) lines.push(`${T.editLink}: ${EDIT_BASE_URL}/#modifica-${b.id}-${b.editToken}`);
     lines.push(T.thanks);
     const text = encodeURIComponent(lines.join('\n'));
     const url = `https://wa.me/${phone}?text=${text}`;

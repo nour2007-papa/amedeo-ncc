@@ -22,6 +22,34 @@ function getAdminApp(name, envVar) {
 
 const EDIT_WINDOW_HOURS = 6;
 const EDITABLE_FIELDS = ['dataOra', 'zona', 'destinazione', 'volo', 'passeggeri', 'bagagli', 'details'];
+// حدود الطول لكل حقل — نفس الفلسفة المطبّقة في firestore.rules وقت الإنشاء،
+// عشان العميل ميقدرش يبعت قيم ضخمة أو نوع بيانات غلط في التعديل.
+const FIELD_MAX_LENGTH = {
+  dataOra: 40,
+  zona: 120,
+  destinazione: 120,
+  volo: 20,
+  passeggeri: 10,
+  bagagli: 10,
+  details: 500,
+};
+
+// يتحقق من أن كل قيمة في updates نص (string) ضمن الطول المسموح، ويرفض أي
+// حقل غير معروف. يرجّع فقط الحقول السليمة.
+function sanitizeUpdates(updates) {
+  const clean = {};
+  if (!updates || typeof updates !== 'object' || Array.isArray(updates)) return clean;
+  for (const field of EDITABLE_FIELDS) {
+    if (!(field in updates)) continue;
+    const value = updates[field];
+    if (typeof value !== 'string') continue; // يرفض object/array/number/bool
+    const trimmed = value.trim();
+    const maxLen = FIELD_MAX_LENGTH[field] || 200;
+    if (trimmed.length > maxLen) continue; // يتجاهل القيمة، مش يفشل الطلب كله
+    clean[field] = trimmed;
+  }
+  return clean;
+}
 
 // Campi che il cliente può vedere (mai esporre editToken, fleetDocId, ecc.)
 function publicView(b) {
@@ -142,10 +170,7 @@ export default async function handler(req, res) {
 
     if (action === 'update') {
       const updates = params.updates || {};
-      const clean = {};
-      for (const field of EDITABLE_FIELDS) {
-        if (field in updates) clean[field] = updates[field];
-      }
+      const clean = sanitizeUpdates(updates);
       clean.confirmed = false; // il cliente ha modificato: torna "da confermare"
       clean.updatedAt = new Date().toISOString();
 

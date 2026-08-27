@@ -667,7 +667,7 @@ onUnmounted(() => {
      block), NOT the full hero section — so it never reaches
      down into .search-box below. Subtle scroll-driven float via
      --griffin-float (set from JS). */
-  .hero-content{position:relative;}
+  .hero-content{position:relative;z-index:2;}
   .hero-griffin{
     display:none;
   }

@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "firebase": "^12.16.0",
-    "firebase-admin": "^12.6.0",
+   "firebase-admin": "^13.0.0"
     "vue": "^3.4.0"
   },
   "devDependencies": {
@@ -18,3 +18,4 @@
     "vite": "^8.2.1"
   }
 }
+3

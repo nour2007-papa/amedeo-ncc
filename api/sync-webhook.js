@@ -20,7 +20,11 @@ function getAdminApp(name, envVar) {
   return initializeApp({ credential: cert(serviceAccount) }, name);
 }
 
-const WEBHOOK_SECRET = process.env.SYNC_WEBHOOK_SECRET || 'default-secret-change-in-production';
+const WEBHOOK_SECRET = process.env.SYNC_WEBHOOK_SECRET;
+
+if (!WEBHOOK_SECRET) {
+  throw new Error("SYNC_WEBHOOK_SECRET environment variable is missing");
+}
 
 /**
  * التحقق من صحة Webhook signature باستخدام HMAC-SHA256

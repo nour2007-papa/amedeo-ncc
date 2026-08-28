@@ -5,7 +5,7 @@ import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
-  getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs, getDoc,
+  getFirestore, collection, query, orderBy, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs, getDoc,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import { fleetDb, fleetAuth } from './firebase-fleet.js';
@@ -31,6 +31,13 @@ const accessDenied = ref(false);
 // quindi lo mostriamo nell'interfaccia invece di fallire in silenzio.
 const fleetAuthStatus = ref('pending'); // 'pending' | 'ok' | 'error' | 'unconfigured'
 let unsubAuth = null;
+// Listener di sincronizzazione inversa: quando l'autista preme "Termina
+// corsa" su ncc-fleet, il documento in prenotazioni passa a stato:
+// "completato" ma questo NON si propaga da solo verso amedeo-ncc (le due
+// scritture avvengono su due progetti Firebase separati). Questo listener
+// ascolta quel cambiamento su fleetDb e riporta il completamento sul
+// bookings corrispondente qui, marcandolo come archiviato.
+let unsubFleetCompletions = null;
 
 // ---------- Enhanced Sync System with Orchestrator ----------
 // Sistema di sincronizzazione migliorato con SyncOrchestrator,
@@ -402,6 +409,44 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
   }
 }
 
+// ---------- Sincronizzazione inversa: completamento corsa (ncc-fleet → amedeo-ncc) ----------
+// Ascolta su fleetDb i documenti 'prenotazioni' con stato:'completato' e
+// riporta il completamento sul bookings corrispondente di amedeo-ncc,
+// usando lo stesso fleetDocId scritto da applyFleetMirror(). Il flag
+// completionSynced sul documento fleet evita di riscrivere ogni volta che
+// il listener si riattiva (es. dopo un refresh della pagina admin).
+function listenForFleetCompletions() {
+  if (unsubFleetCompletions || !fleetDb) return;
+  const q = query(collection(fleetDb, 'prenotazioni'), where('stato', '==', 'completato'));
+  unsubFleetCompletions = onSnapshot(q, (snap) => {
+    snap.docChanges().forEach(async (change) => {
+      if (change.type !== 'added' && change.type !== 'modified') return;
+      const fleetData = change.doc.data();
+      if (fleetData.completionSynced) return;
+      const matchedBooking = bookings.value.find((b) => b.fleetDocId === change.doc.id);
+      if (!matchedBooking || matchedBooking.completed) return;
+      try {
+        const completedAt = fleetData.tripEndedAt?.toDate
+          ? fleetData.tripEndedAt.toDate().toISOString()
+          : new Date().toISOString();
+        await updateDoc(doc(db, 'bookings', matchedBooking.id), {
+          completed: true,
+          completedAt,
+        });
+        await updateDoc(doc(fleetDb, 'prenotazioni', change.doc.id), { completionSynced: true });
+      } catch (e) {
+        console.error('[fleet-sync] Errore sincronizzazione completamento:', e);
+      }
+    });
+  }, (err) => console.error('[fleet-sync] Errore listener completamenti:', err));
+}
+function stopListenForFleetCompletions() {
+  if (unsubFleetCompletions) {
+    unsubFleetCompletions();
+    unsubFleetCompletions = null;
+  }
+}
+
 const flushingSyncQueue = ref(false);
 
 async function flushFleetSyncQueue() {
@@ -527,9 +572,11 @@ onMounted(() => {
         flushFleetSyncQueue();
         // Initialize enhanced sync when fleet auth becomes available
         initializeEnhancedSync();
+        listenForFleetCompletions();
       } else if (fleetAuthStatus.value === 'ok') {
         fleetAuthStatus.value = 'pending';
         cleanupEnhancedSync(); // Cleanup when fleet auth is lost
+        stopListenForFleetCompletions();
       }
     });
   } else {
@@ -541,6 +588,7 @@ onUnmounted(() => {
   unsubFleetAuth && unsubFleetAuth();
   unsubscribeBookings();
   cleanupEnhancedSync(); // Ensure cleanup on component unmount
+  stopListenForFleetCompletions();
 });
 
 function isMobileDevice() {
@@ -650,6 +698,7 @@ function logout() {
   signOut(auth);
   if (fleetAuth) signOut(fleetAuth).catch(() => {});
   fleetAuthStatus.value = 'pending';
+  stopListenForFleetCompletions();
 }
 
 /* ---------- Bookings ---------- */
@@ -714,9 +763,13 @@ function weekKeyOf(d) {
 }
 
 const filteredBookings = computed(() => {
-  if (quickFilter.value === 'all') return bookings.value;
+  if (quickFilter.value === 'archive') {
+    return bookings.value.filter((b) => b.completed);
+  }
+  const active = bookings.value.filter((b) => !b.completed);
+  if (quickFilter.value === 'all') return active;
   const now = new Date();
-  return bookings.value.filter((b) => {
+  return active.filter((b) => {
     const d = toDateOnly(b.serviceDate);
     if (!d) return false;
     if (quickFilter.value === 'today') return d.toDateString() === now.toDateString();
@@ -1181,6 +1234,7 @@ async function installApp() {
           <button :class="{ active: quickFilter === 'today' }" @click="quickFilter = 'today'">Oggi</button>
           <button :class="{ active: quickFilter === 'week' }" @click="quickFilter = 'week'">Questa settimana</button>
           <button :class="{ active: quickFilter === 'month' }" @click="quickFilter = 'month'">Questo mese</button>
+          <button :class="{ active: quickFilter === 'archive' }" @click="quickFilter = 'archive'">Archivio</button>
         </div>
       </div>
 
@@ -1203,6 +1257,7 @@ async function installApp() {
                 <span class="admin-badge" :class="{ on: b.confirmed }">
                   {{ b.confirmed ? 'Confermata' : 'Da confermare' }}
                 </span>
+                <span v-if="b.completed" class="admin-badge on">✅ Completata</span>
               </div>
 
               <p class="admin-when">{{ formatCreatedAt(b.createdAt) }}</p>

@@ -274,14 +274,14 @@ onUnmounted(() => {
    cambi di ora legale.
    ========================================================= */
 const worldClocks = [
-  { flag: '🇮🇹', city: 'Milano', country: 'Italia', tz: 'Europe/Rome', base: true },
-  { flag: '🇸🇦', city: 'Riyadh', country: 'Arabia Saudita', tz: 'Asia/Riyadh' },
-  { flag: '🇦🇪', city: 'Dubai', country: 'Emirati Arabi Uniti', tz: 'Asia/Dubai' },
-  { flag: '🇦🇪', city: 'Abu Dhabi', country: 'Emirati Arabi Uniti', tz: 'Asia/Dubai' },
-  { flag: '🇪🇬', city: 'Il Cairo', country: 'Egitto', tz: 'Africa/Cairo' },
-  { flag: '🇶🇦', city: 'Doha', country: 'Qatar', tz: 'Asia/Qatar' },
-  { flag: '🇧🇭', city: 'Manama', country: 'Bahrain', tz: 'Asia/Bahrain' },
-  { flag: '🇴🇲', city: 'Muscat', country: 'Oman', tz: 'Asia/Muscat' },
+  { cc: 'it', city: 'Milano', country: 'Italia', tz: 'Europe/Rome', base: true },
+  { cc: 'sa', city: 'Riyadh', country: 'Arabia Saudita', tz: 'Asia/Riyadh' },
+  { cc: 'ae', city: 'Dubai', country: 'Emirati Arabi Uniti', tz: 'Asia/Dubai' },
+  { cc: 'ae', city: 'Abu Dhabi', country: 'Emirati Arabi Uniti', tz: 'Asia/Dubai' },
+  { cc: 'eg', city: 'Il Cairo', country: 'Egitto', tz: 'Africa/Cairo' },
+  { cc: 'qa', city: 'Doha', country: 'Qatar', tz: 'Asia/Qatar' },
+  { cc: 'bh', city: 'Manama', country: 'Bahrain', tz: 'Asia/Bahrain' },
+  { cc: 'om', city: 'Muscat', country: 'Oman', tz: 'Asia/Muscat' },
 ];
 const clockTimes = ref(worldClocks.map(() => '--:--:--'));
 const localClockTime = ref('--:--');
@@ -305,7 +305,7 @@ onUnmounted(() => {
 });
 // Lista raddoppiata per il loop infinito del ticker (stessa logica di boardRoutes)
 const tickerClocks = computed(() => {
-  const list = worldClocks.map((c, i) => ({ flag: c.flag, city: c.city, base: c.base, time: clockTimes.value[i] }));
+  const list = worldClocks.map((c, i) => ({ cc: c.cc, city: c.city, base: c.base, time: clockTimes.value[i] }));
   return [...list, ...list];
 });
 </script>
@@ -561,7 +561,8 @@ const tickerClocks = computed(() => {
     <div class="clocks-ticker-inner">
       <span v-for="(c, i) in tickerClocks" :key="i" class="clock-ticker-item" :class="{ 'is-base': c.base }">
         <span class="clock-ticker-dot" v-if="c.base"></span>
-        <span aria-hidden="true">{{ c.flag }}</span> <b>{{ c.city }}</b> {{ c.time }}
+        <img class="clock-flag-img" :src="`https://flagcdn.com/20x15/${c.cc}.png`" :srcset="`https://flagcdn.com/40x30/${c.cc}.png 2x`" width="20" height="15" :alt="c.city" loading="lazy" />
+        <b>{{ c.city }}</b> {{ c.time }}
       </span>
     </div>
   </div>
@@ -985,6 +986,7 @@ const tickerClocks = computed(() => {
   }
   .clock-ticker-item b{color:var(--brass-bright);font-weight:500;}
   .clock-ticker-item.is-base{color:var(--paper);}
+  .clock-flag-img{display:inline-block;border-radius:2px;flex-shrink:0;}
   .clock-ticker-dot{width:5px;height:5px;border-radius:50%;background:var(--brass);animation:pulse 1.6s ease-in-out infinite;}
   html[dir="rtl"] .clocks-ticker-inner{animation-name:scrollrtl;}
   @media (prefers-reduced-motion: reduce){

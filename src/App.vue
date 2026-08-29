@@ -303,7 +303,6 @@ const worldClocks = [
 const tickerClocks = reactive(
   [...worldClocks, ...worldClocks].map(c => ({ cc: c.cc, city: c.city, base: c.base, time: '--:--:--' }))
 );
-const localClockTime = ref('--:--');
 let clocksTimer = null;
 function tickWorldClocks() {
   worldClocks.forEach((c, i) => {
@@ -313,9 +312,6 @@ function tickWorldClocks() {
     tickerClocks[i].time = time;
     tickerClocks[i + worldClocks.length].time = time;
   });
-  localClockTime.value = new Intl.DateTimeFormat('it-IT', {
-    hour: '2-digit', minute: '2-digit',
-  }).format(new Date());
 }
 onMounted(() => {
   tickWorldClocks();
@@ -993,7 +989,7 @@ onUnmounted(() => {
     overflow:hidden;
     padding:14px 0;
     margin-top:0;
-    margin-bottom:14px;
+    margin-bottom:6px;
     width:100vw;
     position:relative;
     left:50%;
@@ -1021,7 +1017,7 @@ onUnmounted(() => {
 
   /* ENHANCED FOOTER */
   footer{
-    border-top:1px solid var(--line);padding:26px 0 18px;
+    border-top:1px solid var(--line);padding:26px 0 10px;
     color:var(--steel);font-size:0.78rem;
   }
   .footer-inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:32px;margin-bottom:28px;}
@@ -1029,7 +1025,7 @@ onUnmounted(() => {
   .footer-col nav{display:block;padding:0;max-width:none;margin:0;}
   .footer-col a{display:block;color:var(--steel);font-size:0.82rem;padding:4px 0;transition:color .2s;}
   .footer-col a:hover{color:var(--paper);}
-  .footer-bottom{border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:0.75rem;}
+  .footer-bottom{border-top:1px solid var(--line);padding-top:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:0.75rem;}
   @media(max-width:760px){
     .footer-inner{flex-direction:column;gap:24px;}
   }

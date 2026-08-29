@@ -290,6 +290,10 @@ const worldClocks = [
   { cc: 'iq', city: 'Baghdad', country: 'Iraq', tz: 'Asia/Baghdad' },
   { cc: 'lb', city: 'Beirut', country: 'Libano', tz: 'Asia/Beirut' },
   { cc: 'sy', city: 'Damasco', country: 'Siria', tz: 'Asia/Damascus' },
+  { cc: 'kw', city: 'Kuwait City', country: 'Kuwait', tz: 'Asia/Kuwait' },
+  { cc: 'us', city: 'New York', country: 'Stati Uniti', tz: 'America/New_York' },
+  { cc: 'ru', city: 'Mosca', country: 'Russia', tz: 'Europe/Moscow' },
+  { cc: 'ca', city: 'Toronto', country: 'Canada', tz: 'America/Toronto' },
 ];
 const clockTimes = ref(worldClocks.map(() => '--:--:--'));
 const localClockTime = ref('--:--');

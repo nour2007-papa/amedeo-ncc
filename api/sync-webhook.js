@@ -214,7 +214,7 @@ function determineFleetUpdates(booking) {
   // تحديث الحقول الأخرى
   if (booking.dataOra) updates.dataOra = booking.dataOra;
   if (booking.destinazione) updates.destinazione = booking.destinazione;
-  if (booking.volo) {
+  if (booking.volo && typeof booking.volo === 'string') {
     // تحديث note لإضافة معلومات الرحلة
     const existingNote = booking.note || '';
     updates.note = existingNote.includes(`Volo: ${booking.volo}`) 

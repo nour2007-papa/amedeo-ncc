@@ -556,21 +556,22 @@ const tickerClocks = computed(() => {
       </nav>
     </div>
   </div>
+
+  <div class="clocks-ticker" role="region" aria-label="Orari nel mondo">
+    <div class="clocks-ticker-inner">
+      <span v-for="(c, i) in tickerClocks" :key="i" class="clock-ticker-item" :class="{ 'is-base': c.base }">
+        <span class="clock-ticker-dot" v-if="c.base"></span>
+        <span aria-hidden="true">{{ c.flag }}</span> <b>{{ c.city }}</b> {{ c.time }}
+      </span>
+    </div>
+  </div>
+
   <div class="footer-bottom">
     <!-- ⚠️ TODO: sostituire con la Partita IVA reale prima di pubblicare online -->
     <span>© 2026 Grifone NCC · P.IVA XXXXXXXXXXX</span>
     <span>{{ t.foot_note }}</span>
   </div>
 </footer>
-
-<div class="clocks-ticker" role="region" aria-label="Orari nel mondo">
-  <div class="clocks-ticker-inner">
-    <span v-for="(c, i) in tickerClocks" :key="i" class="clock-ticker-item" :class="{ 'is-base': c.base }">
-      <span class="clock-ticker-dot" v-if="c.base"></span>
-      <span aria-hidden="true">{{ c.flag }}</span> <b>{{ c.city }}</b> {{ c.time }}
-    </span>
-  </div>
-</div>
 </main>
 
 <a class="whatsapp-fab" :href="waDefaultLink" target="_blank" rel="noopener" aria-label="Scrivici su WhatsApp">
@@ -974,7 +975,7 @@ const tickerClocks = computed(() => {
     border-bottom:1px solid var(--line);
     overflow:hidden;
     padding:14px 0;
-    margin-top:8px;
+    margin:0 -1px 24px;
   }
   .clocks-ticker-inner{display:flex;gap:0;animation:scroll 24s linear infinite;white-space:nowrap;}
   .clock-ticker-item{

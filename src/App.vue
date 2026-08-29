@@ -295,14 +295,23 @@ const worldClocks = [
   { cc: 'ru', city: 'Mosca', country: 'Russia', tz: 'Europe/Moscow' },
   { cc: 'ca', city: 'Toronto', country: 'Canada', tz: 'America/Toronto' },
 ];
-const clockTimes = ref(worldClocks.map(() => '--:--:--'));
+// Lista raddoppiata (per il loop infinito del ticker) creata UNA SOLA VOLTA:
+// aggiorniamo solo la proprieta `time` di ogni oggetto ad ogni tick, invece
+// di ricreare l'intero array ogni secondo — evita di far ripatchare a Vue
+// tutti i nodi del ticker in un colpo solo, cosa che causava un piccolo
+// scatto (jank) nell'animazione CSS di scorrimento.
+const tickerClocks = reactive(
+  [...worldClocks, ...worldClocks].map(c => ({ cc: c.cc, city: c.city, base: c.base, time: '--:--:--' }))
+);
 const localClockTime = ref('--:--');
 let clocksTimer = null;
 function tickWorldClocks() {
   worldClocks.forEach((c, i) => {
-    clockTimes.value[i] = new Intl.DateTimeFormat('it-IT', {
+    const time = new Intl.DateTimeFormat('it-IT', {
       timeZone: c.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
     }).format(new Date());
+    tickerClocks[i].time = time;
+    tickerClocks[i + worldClocks.length].time = time;
   });
   localClockTime.value = new Intl.DateTimeFormat('it-IT', {
     hour: '2-digit', minute: '2-digit',
@@ -314,11 +323,6 @@ onMounted(() => {
 });
 onUnmounted(() => {
   if (clocksTimer) clearInterval(clocksTimer);
-});
-// Lista raddoppiata per il loop infinito del ticker (stessa logica di boardRoutes)
-const tickerClocks = computed(() => {
-  const list = worldClocks.map((c, i) => ({ cc: c.cc, city: c.city, base: c.base, time: clockTimes.value[i] }));
-  return [...list, ...list];
 });
 </script>
 
@@ -997,7 +1001,10 @@ const tickerClocks = computed(() => {
     margin-left:-50vw;
     margin-right:-50vw;
   }
-  .clocks-ticker-inner{display:flex;gap:0;animation:scroll 24s linear infinite;white-space:nowrap;}
+  .clocks-ticker-inner{
+    display:flex;gap:0;animation:scroll 24s linear infinite;white-space:nowrap;
+    will-change:transform;transform:translateZ(0);backface-visibility:hidden;
+  }
   .clock-ticker-item{
     display:inline-flex;align-items:center;gap:8px;
     padding:0 28px;border-right:1px solid var(--line);

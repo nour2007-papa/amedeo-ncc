@@ -282,6 +282,14 @@ const worldClocks = [
   { cc: 'qa', city: 'Doha', country: 'Qatar', tz: 'Asia/Qatar' },
   { cc: 'bh', city: 'Manama', country: 'Bahrain', tz: 'Asia/Bahrain' },
   { cc: 'om', city: 'Muscat', country: 'Oman', tz: 'Asia/Muscat' },
+  { cc: 'ma', city: 'Rabat', country: 'Marocco', tz: 'Africa/Casablanca' },
+  { cc: 'tn', city: 'Tunisi', country: 'Tunisia', tz: 'Africa/Tunis' },
+  { cc: 'ly', city: 'Tripoli', country: 'Libia', tz: 'Africa/Tripoli' },
+  { cc: 'dz', city: 'Algeri', country: 'Algeria', tz: 'Africa/Algiers' },
+  { cc: 'jo', city: 'Amman', country: 'Giordania', tz: 'Asia/Amman' },
+  { cc: 'iq', city: 'Baghdad', country: 'Iraq', tz: 'Asia/Baghdad' },
+  { cc: 'lb', city: 'Beirut', country: 'Libano', tz: 'Asia/Beirut' },
+  { cc: 'sy', city: 'Damasco', country: 'Siria', tz: 'Asia/Damascus' },
 ];
 const clockTimes = ref(worldClocks.map(() => '--:--:--'));
 const localClockTime = ref('--:--');
@@ -977,7 +985,7 @@ const tickerClocks = computed(() => {
     overflow:hidden;
     padding:14px 0;
     margin-top:0;
-    margin-bottom:24px;
+    margin-bottom:14px;
     width:100vw;
     position:relative;
     left:50%;
@@ -1002,7 +1010,7 @@ const tickerClocks = computed(() => {
 
   /* ENHANCED FOOTER */
   footer{
-    border-top:1px solid var(--line);padding:26px 0 34px;
+    border-top:1px solid var(--line);padding:26px 0 18px;
     color:var(--steel);font-size:0.78rem;
   }
   .footer-inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:32px;margin-bottom:28px;}
@@ -1010,7 +1018,7 @@ const tickerClocks = computed(() => {
   .footer-col nav{display:block;padding:0;max-width:none;margin:0;}
   .footer-col a{display:block;color:var(--steel);font-size:0.82rem;padding:4px 0;transition:color .2s;}
   .footer-col a:hover{color:var(--paper);}
-  .footer-bottom{border-top:1px solid var(--line);padding-top:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:0.75rem;}
+  .footer-bottom{border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:0.75rem;}
   @media(max-width:760px){
     .footer-inner{flex-direction:column;gap:24px;}
   }

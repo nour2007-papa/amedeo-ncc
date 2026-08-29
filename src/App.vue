@@ -265,6 +265,50 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('scroll', onScrollGriffin);
 });
+
+/* =========================================================
+   World clocks — orologi con i fusi orari dei mercati chiave
+   (Golfo, Egitto). Aggiornati ogni secondo con un solo
+   setInterval condiviso; l'offset UTC viene ricalcolato allo
+   stesso tick cosi da restare corretto anche con eventuali
+   cambi di ora legale.
+   ========================================================= */
+const worldClocks = [
+  { flag: '🇮🇹', city: 'Milano', country: 'Italia', tz: 'Europe/Rome', base: true },
+  { flag: '🇸🇦', city: 'Riyadh', country: 'Arabia Saudita', tz: 'Asia/Riyadh' },
+  { flag: '🇦🇪', city: 'Dubai', country: 'Emirati Arabi Uniti', tz: 'Asia/Dubai' },
+  { flag: '🇦🇪', city: 'Abu Dhabi', country: 'Emirati Arabi Uniti', tz: 'Asia/Dubai' },
+  { flag: '🇪🇬', city: 'Il Cairo', country: 'Egitto', tz: 'Africa/Cairo' },
+  { flag: '🇶🇦', city: 'Doha', country: 'Qatar', tz: 'Asia/Qatar' },
+  { flag: '🇧🇭', city: 'Manama', country: 'Bahrain', tz: 'Asia/Bahrain' },
+  { flag: '🇴🇲', city: 'Muscat', country: 'Oman', tz: 'Asia/Muscat' },
+];
+const clockTimes = ref(worldClocks.map(() => '--:--:--'));
+const clockOffsets = ref(worldClocks.map(() => ''));
+const localClockTime = ref('--:--');
+let clocksTimer = null;
+function tickWorldClocks() {
+  worldClocks.forEach((c, i) => {
+    clockTimes.value[i] = new Intl.DateTimeFormat('it-IT', {
+      timeZone: c.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(new Date());
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: c.tz, timeZoneName: 'shortOffset',
+    }).formatToParts(new Date());
+    const off = parts.find(p => p.type === 'timeZoneName');
+    clockOffsets.value[i] = off ? off.value.replace('GMT', 'UTC') : '';
+  });
+  localClockTime.value = new Intl.DateTimeFormat('it-IT', {
+    hour: '2-digit', minute: '2-digit',
+  }).format(new Date());
+}
+onMounted(() => {
+  tickWorldClocks();
+  clocksTimer = setInterval(tickWorldClocks, 1000);
+});
+onUnmounted(() => {
+  if (clocksTimer) clearInterval(clocksTimer);
+});
 </script>
 
 <template>
@@ -483,6 +527,30 @@ onUnmounted(() => {
 
 <!-- ⚠️ Sezione recensioni rimossa: recensioni inventate = rischio legale (Codice
      del Consumo) e di reputazione. Rimettila quando avrai recensioni vere. -->
+
+<section class="section wrap" id="orari-mondo" aria-labelledby="clocks-title">
+  <div class="clocks-board">
+    <div class="clocks-head">
+      <div class="clocks-title" id="clocks-title">{{ t.clocks_title }}</div>
+      <div class="clocks-sub mono">{{ t.clocks_sub }}</div>
+    </div>
+    <div class="clocks-rows">
+      <div v-for="(c, i) in worldClocks" :key="c.tz" class="clock-row" :class="{ 'is-base': c.base }">
+        <div class="clock-flag" aria-hidden="true">{{ c.flag }}</div>
+        <div class="clock-city-block">
+          <div class="clock-city">{{ c.city }}</div>
+          <div class="clock-country">{{ c.country }}</div>
+        </div>
+        <div class="clock-offset mono">{{ clockOffsets[i] }}</div>
+        <div class="clock-time mono">{{ clockTimes[i] }}</div>
+      </div>
+    </div>
+    <div class="clocks-foot">
+      <span><span class="clock-dot">●</span> {{ t.clocks_base }}</span>
+      <span>{{ t.clocks_local }}: {{ localClockTime }}</span>
+    </div>
+  </div>
+</section>
 
 <footer class="wrap" role="contentinfo">
   <div class="footer-inner">
@@ -914,6 +982,62 @@ onUnmounted(() => {
   .modal-box h3{font-family:'Fraunces',serif;font-size:1.4rem;margin-bottom:18px;}
   .modal-box p,.modal-box li{color:var(--steel);font-size:0.88rem;line-height:1.7;margin-bottom:12px;}
   .modal-box ul{padding-left:20px;margin-bottom:12px;}
+
+  /* WORLD CLOCKS */
+  .clocks-board{
+    background:var(--surface);border:1px solid var(--line);padding:28px 24px 22px;
+  }
+  .clocks-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:18px;
+    flex-wrap:wrap;gap:8px;
+  }
+  .clocks-title{
+    font-family:'Fraunces',serif;font-style:italic;color:var(--paper);
+    font-size:1.15rem;letter-spacing:0.02em;
+  }
+  .clocks-sub{
+    color:var(--steel);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.14em;
+  }
+  .clocks-rows{display:flex;flex-direction:column;}
+  .clock-row{
+    display:grid;grid-template-columns:28px 1fr auto 88px;
+    align-items:center;gap:14px;padding:11px 4px;
+    border-bottom:1px dashed var(--line);
+  }
+  .clock-row:last-child{border-bottom:none;}
+  .clock-flag{font-size:1.15rem;line-height:1;text-align:center;}
+  .clock-city-block{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .clock-city{
+    color:var(--paper);font-size:0.86rem;letter-spacing:0.03em;
+    text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .clock-country{color:var(--steel);font-size:0.65rem;letter-spacing:0.05em;}
+  .clock-offset{
+    color:var(--steel);font-size:0.68rem;letter-spacing:0.06em;
+    white-space:nowrap;justify-self:end;
+  }
+  .clock-time{
+    color:var(--brass-bright);font-size:1.15rem;letter-spacing:0.06em;
+    text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .clock-row.is-base .clock-time{color:var(--paper);}
+  .clock-row.is-base{background:rgba(176,141,87,0.06);}
+  .clocks-foot{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-top:16px;padding-top:12px;border-top:1px solid var(--line);
+    color:var(--steel);font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;
+    flex-wrap:wrap;gap:6px;
+  }
+  .clock-dot{color:var(--brass);}
+  @media(max-width:520px){
+    .clock-row{grid-template-columns:22px 1fr auto;}
+    .clock-offset{display:none;}
+    .clock-time{font-size:1.02rem;}
+  }
+  html[dir="rtl"] .clock-time,html[dir="rtl"] .clock-offset{
+    text-align:left;justify-self:start;
+  }
 
   /* ENHANCED FOOTER */
   footer{

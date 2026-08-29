@@ -976,7 +976,14 @@ const tickerClocks = computed(() => {
     border-bottom:1px solid var(--line);
     overflow:hidden;
     padding:14px 0;
-    margin:0 -1px 24px;
+    margin-top:0;
+    margin-bottom:24px;
+    width:100vw;
+    position:relative;
+    left:50%;
+    right:50%;
+    margin-left:-50vw;
+    margin-right:-50vw;
   }
   .clocks-ticker-inner{display:flex;gap:0;animation:scroll 24s linear infinite;white-space:nowrap;}
   .clock-ticker-item{
@@ -995,7 +1002,7 @@ const tickerClocks = computed(() => {
 
   /* ENHANCED FOOTER */
   footer{
-    border-top:1px solid var(--line);padding:44px 0 34px;
+    border-top:1px solid var(--line);padding:26px 0 34px;
     color:var(--steel);font-size:0.78rem;
   }
   .footer-inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:32px;margin-bottom:28px;}

@@ -527,15 +527,6 @@ const tickerClocks = computed(() => {
 <!-- ⚠️ Sezione recensioni rimossa: recensioni inventate = rischio legale (Codice
      del Consumo) e di reputazione. Rimettila quando avrai recensioni vere. -->
 
-<div class="clocks-ticker" role="region" aria-label="Orari nel mondo">
-  <div class="clocks-ticker-inner">
-    <span v-for="(c, i) in tickerClocks" :key="i" class="clock-ticker-item" :class="{ 'is-base': c.base }">
-      <span class="clock-ticker-dot" v-if="c.base"></span>
-      <span aria-hidden="true">{{ c.flag }}</span> <b>{{ c.city }}</b> {{ c.time }}
-    </span>
-  </div>
-</div>
-
 <footer class="wrap" role="contentinfo">
   <div class="footer-inner">
     <div class="footer-col">
@@ -571,6 +562,15 @@ const tickerClocks = computed(() => {
     <span>{{ t.foot_note }}</span>
   </div>
 </footer>
+
+<div class="clocks-ticker" role="region" aria-label="Orari nel mondo">
+  <div class="clocks-ticker-inner">
+    <span v-for="(c, i) in tickerClocks" :key="i" class="clock-ticker-item" :class="{ 'is-base': c.base }">
+      <span class="clock-ticker-dot" v-if="c.base"></span>
+      <span aria-hidden="true">{{ c.flag }}</span> <b>{{ c.city }}</b> {{ c.time }}
+    </span>
+  </div>
+</div>
 </main>
 
 <a class="whatsapp-fab" :href="waDefaultLink" target="_blank" rel="noopener" aria-label="Scrivici su WhatsApp">

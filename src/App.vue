@@ -973,7 +973,8 @@ const tickerClocks = computed(() => {
     border-top:1px solid var(--line);
     border-bottom:1px solid var(--line);
     overflow:hidden;
-    padding:10px 0;
+    padding:14px 0;
+    margin-top:8px;
   }
   .clocks-ticker-inner{display:flex;gap:0;animation:scroll 24s linear infinite;white-space:nowrap;}
   .clock-ticker-item{

@@ -1018,7 +1018,7 @@ onUnmounted(() => {
     margin-right:-50vw;
   }
   .clocks-ticker-inner{
-    display:flex;gap:0;animation:scroll 85s linear infinite;white-space:nowrap;
+    display:flex;gap:0;animation:scroll 45s linear infinite;white-space:nowrap;
     will-change:transform;transform:translateZ(0);backface-visibility:hidden;
   }
   .clock-ticker-item{

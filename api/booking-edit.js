@@ -91,7 +91,7 @@ function buildFleetNote(b) {
 
 export default async function handler(req, res) {
   // تطبيق security middleware
-  if (!applySecurityMiddleware(req, res)) {
+  if (!(await applySecurityMiddleware(req, res))) {
     return;
   }
 

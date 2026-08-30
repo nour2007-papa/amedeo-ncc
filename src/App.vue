@@ -302,6 +302,11 @@ const worldClocks = [
   { cc: 'us', city: 'New York', country: 'Stati Uniti', tz: 'America/New_York' },
   { cc: 'ru', city: 'Mosca', country: 'Russia', tz: 'Europe/Moscow' },
   { cc: 'ca', city: 'Toronto', country: 'Canada', tz: 'America/Toronto' },
+  { cc: 'tr', city: 'Istanbul', country: 'Turchia', tz: 'Europe/Istanbul' },
+  { cc: 'gb', city: 'Londra', country: 'Regno Unito', tz: 'Europe/London' },
+  { cc: 'fr', city: 'Parigi', country: 'Francia', tz: 'Europe/Paris' },
+  { cc: 'de', city: 'Francoforte', country: 'Germania', tz: 'Europe/Berlin' },
+  { cc: 'es', city: 'Madrid', country: 'Spagna', tz: 'Europe/Madrid' },
 ];
 // Lista raddoppiata (per il loop infinito del ticker) creata UNA SOLA VOLTA:
 // aggiorniamo solo la proprieta `time` di ogni oggetto ad ogni tick, invece
@@ -1013,7 +1018,7 @@ onUnmounted(() => {
     margin-right:-50vw;
   }
   .clocks-ticker-inner{
-    display:flex;gap:0;animation:scroll 24s linear infinite;white-space:nowrap;
+    display:flex;gap:0;animation:scroll 85s linear infinite;white-space:nowrap;
     will-change:transform;transform:translateZ(0);backface-visibility:hidden;
   }
   .clock-ticker-item{

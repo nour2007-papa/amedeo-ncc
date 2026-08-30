@@ -139,7 +139,7 @@ export const dict = {
     "privacy_p5": "Ultimo aggiornamento: Luglio 2026.",
     "cookie_text": "Utilizziamo solo cookie tecnici necessari al funzionamento di questo sito. Cliccando \"Accetta\" acconsenti all'uso dei cookie. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">Informativa</a>",
     "cookie_accept": "Accetta",
-    "cookie_dismiss": "Chiudi",
+    "cookie_dismiss": "Rifiuta",
     "f_service_placeholder": "Scegli il servizio",
     "f_country_search": "Cerca paese o prefisso...",
     "f_country_none": "Nessun paese trovato"
@@ -284,7 +284,7 @@ export const dict = {
     "privacy_p5": "Last updated: July 2026.",
     "cookie_text": "We only use technical cookies necessary for this site to function. By clicking \"Accept\" you consent to the use of cookies. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">Policy</a>",
     "cookie_accept": "Accept",
-    "cookie_dismiss": "Dismiss",
+    "cookie_dismiss": "Reject",
     "f_service_placeholder": "Choose a service",
     "f_country_search": "Search country or code...",
     "f_country_none": "No country found"
@@ -429,7 +429,7 @@ export const dict = {
     "privacy_p5": "آخر تحديث: يوليو 2026.",
     "cookie_text": "نستخدم فقط ملفات تعريف الارتباط التقنية الضرورية لتشغيل هذا الموقع. بالنقر على \"قبول\" فإنك توافق على استخدام ملفات تعريف الارتباط. <a href=\"#\" onclick=\"openPrivacyModal();return false;\">السياسة</a>",
     "cookie_accept": "قبول",
-    "cookie_dismiss": "إغلاق",
+    "cookie_dismiss": "رفض",
     "f_service_placeholder": "اختر الخدمة",
     "f_country_search": "ابحث عن دولة أو كود...",
     "f_country_none": "لا توجد نتائج"

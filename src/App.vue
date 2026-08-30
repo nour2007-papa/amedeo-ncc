@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
@@ -90,14 +90,19 @@ function imgSrcset(url) {
 }
 const CARD_IMG_SIZES = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px';
 
+// Set reattivo delle URL fallite — invece di sostituire il nodo <img> nel
+// DOM manualmente (che lo staccava dal Virtual DOM di Vue: se la stessa
+// foto tornava buona in un secondo momento — es. dopo la rotazione delle
+// foto viaggi ogni 3s — Vue non aveva più un nodo da aggiornare e la
+// scheda restava bloccata su "IMAGE NOT AVAILABLE" per sempre).
+const brokenImgUrls = reactive(new Set());
+function isImgBroken(url) {
+  return brokenImgUrls.has(url);
+}
 function imgFallback(event) {
-  const text = t.value.img_unavailable || 'IMAGE NOT AVAILABLE';
-  const el = event.target;
-  console.warn('Image failed to load:', el.src);
-  const div = document.createElement('div');
-  div.className = 'car-photo broken';
-  div.textContent = text;
-  el.replaceWith(div);
+  const src = event.target?.currentSrc || event.target?.src;
+  console.warn('Image failed to load:', src);
+  if (src) brokenImgUrls.add(src);
 }
 
 /* =========================================================
@@ -190,29 +195,40 @@ onMounted(() => {
 
 const cookieVisible = ref(false);
 onMounted(() => {
-  if (!localStorage.getItem('cookie_ok')) {
+  let stored = null;
+  try { stored = localStorage.getItem('cookie_ok'); } catch (e) { /* storage bloccato */ }
+  if (stored === null) {
     setTimeout(() => (cookieVisible.value = true), 1200);
   }
 });
-function acceptCookies() {
-  localStorage.setItem('cookie_ok', '1');
+function persistCookieChoice(value) {
+  try { localStorage.setItem('cookie_ok', value); } catch (e) { /* storage bloccato */ }
   cookieVisible.value = false;
 }
+// Accettare e rifiutare sono due scelte distinte — il rifiuto NON deve
+// registrare un consenso pieno (obbligo GDPR: consenso esplicito).
+function acceptCookies() { persistCookieChoice('accepted'); }
+function declineCookies() { persistCookieChoice('declined'); }
 
 /* =========================================================
    Scroll-reveal directive (v-reveal)
    ========================================================= */
 const vReveal = {
   mounted(el) {
-    const io = new IntersectionObserver((entries) => {
+    el.__revealIO = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           el.classList.add('active');
-          io.unobserve(el);
+          el.__revealIO.disconnect();
+          delete el.__revealIO;
         }
       });
     }, { threshold: 0.15 });
-    io.observe(el);
+    el.__revealIO.observe(el);
+  },
+  unmounted(el) {
+    el.__revealIO?.disconnect();
+    delete el.__revealIO;
   },
 };
 
@@ -379,7 +395,7 @@ onUnmounted(() => {
 
     <img
       :src="griffinLogoLarge"
-      alt="Logo Grifone NCC - Autista Privato Milano"
+      alt=""
       aria-hidden="true"
       class="hero-griffin reveal delay-3"
       v-reveal
@@ -451,7 +467,8 @@ onUnmounted(() => {
   </div>
   <div class="fleet" role="list" aria-label="Flotta Mercedes premium">
     <article class="car reveal" v-reveal v-for="c in fleet" :key="c.code" role="listitem">
-      <img class="car-photo" :src="c.photo" :srcset="imgSrcset(c.photo)" :sizes="CARD_IMG_SIZES" :alt="c.alt" width="380" height="200" loading="lazy" decoding="async" @error="imgFallback">
+      <img v-if="!isImgBroken(c.photo)" class="car-photo" :src="c.photo" :srcset="imgSrcset(c.photo)" :sizes="CARD_IMG_SIZES" :alt="c.alt" width="380" height="200" loading="lazy" decoding="async" @error="imgFallback">
+      <div v-else class="car-photo broken" role="img" :aria-label="t.img_unavailable || 'IMAGE NOT AVAILABLE'">{{ t.img_unavailable || 'IMAGE NOT AVAILABLE' }}</div>
       <div class="car-body">
         <div class="code">{{ c.code }}</div>
         <h4>{{ c.name }}</h4>
@@ -481,7 +498,8 @@ onUnmounted(() => {
   </div>
   <div class="fleet" role="list" aria-label="Viaggi consigliati con autista privato">
     <article class="car reveal" v-reveal v-for="trip in trips" :key="trip.code" role="listitem">
-      <img class="car-photo" :src="tripPhoto(trip)" :srcset="imgSrcset(tripPhoto(trip))" :sizes="CARD_IMG_SIZES" :alt="trip.alt || t[trip.titleKey]" width="380" height="200" loading="lazy" decoding="async" @error="imgFallback">
+      <img v-if="!isImgBroken(tripPhoto(trip))" class="car-photo" :src="tripPhoto(trip)" :srcset="imgSrcset(tripPhoto(trip))" :sizes="CARD_IMG_SIZES" :alt="trip.alt || t[trip.titleKey]" width="380" height="200" loading="lazy" decoding="async" @error="imgFallback">
+      <div v-else class="car-photo broken" role="img" :aria-label="t.img_unavailable || 'IMAGE NOT AVAILABLE'">{{ t.img_unavailable || 'IMAGE NOT AVAILABLE' }}</div>
       <div class="car-body">
         <div class="code">{{ trip.code }}</div>
         <h4>{{ t[trip.titleKey] }}</h4>
@@ -627,7 +645,7 @@ onUnmounted(() => {
   <span v-html="t.cookie_text"></span>
   <div class="cookie-btns">
     <button @click="acceptCookies" aria-label="Accetta i cookie">{{ t.cookie_accept }}</button>
-    <button @click="acceptCookies" aria-label="Chiudi il banner cookie">{{ t.cookie_dismiss }}</button>
+    <button @click="declineCookies" aria-label="Rifiuta i cookie non necessari">{{ t.cookie_dismiss }}</button>
   </div>
 </div>
 </template>
@@ -965,7 +983,7 @@ onUnmounted(() => {
 
   /* COOKIE BANNER */
   .cookie-banner{
-    position:fixed;bottom:0;left:0;right:0;z-index:100;
+    position:fixed;bottom:0;left:0;right:0;z-index:700;
     background:var(--surface);border-top:1px solid var(--line);
     padding:18px 28px;display:flex;align-items:center;justify-content:space-between;
     gap:16px;font-size:0.82rem;color:var(--steel);
@@ -983,7 +1001,7 @@ onUnmounted(() => {
 
   /* PRIVACY MODAL */
   .modal-overlay{
-    position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);
+    position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.7);
     display:none;align-items:center;justify-content:center;padding:28px;
   }
   .modal-overlay.open{display:flex;}
@@ -1116,7 +1134,7 @@ onUnmounted(() => {
      visible visual viewport, so the button sits below the fold and is
      invisible until the address bar collapses on scroll. */
   .whatsapp-fab{
-    position:fixed;bottom:100px;right:22px;z-index:9999;
+    position:fixed;bottom:100px;right:22px;z-index:600;
     width:58px;height:58px;border-radius:50%;
     background:#25D366;display:flex;align-items:center;justify-content:center;
     box-shadow:0 6px 20px rgba(0,0,0,0.35);

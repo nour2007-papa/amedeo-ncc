@@ -136,6 +136,14 @@ function selectCar(carName) {
   scrollToContact();
 }
 
+function selectService(index) {
+  bookingPrefill.value = {
+    tipoServizio: SERVICE_ID_BY_INDEX[index] || 'altro',
+    note: `${t.value.note_service_prefix}: ${t.value[services[index].titleKey]}`,
+  };
+  scrollToContact();
+}
+
 function selectTrip(cityName) {
   bookingPrefill.value = { tipoServizio: 'intercity', destinazione: cityName, note: `${t.value.note_trip_prefix}: ${cityName}` };
   scrollToContact();
@@ -421,11 +429,12 @@ onUnmounted(() => {
     <div class="tag mono">{{ t.services_tag }}</div>
   </div>
   <div class="services" role="list" aria-label="Lista servizi NCC">
-    <article class="stub reveal" v-reveal v-for="s in services" :key="s.code" role="listitem">
+    <article class="stub reveal" v-reveal v-for="(s, i) in services" :key="s.code" role="listitem">
       <div class="stub-code">{{ s.code }}</div>
       <h3>{{ t[s.titleKey] }}</h3>
       <p>{{ t[s.descKey] }}</p>
       <div class="stub-foot"><span>{{ s.tag1 }}</span><b>{{ s.tag2 }}</b></div>
+      <button class="stub-btn" @click="selectService(i)" :aria-label="`${t.btn_book_service}: ${t[s.titleKey]}`">{{ t.btn_book_service }}</button>
     </article>
   </div>
 </section>
@@ -797,7 +806,7 @@ onUnmounted(() => {
   }
   .stub:hover{border-color:var(--brass);transform:translateY(-3px);}
   .stub::after{
-    content:'';position:absolute;left:0;right:0;bottom:64px;
+    content:'';position:absolute;left:0;right:0;bottom:120px;
     border-top:1px dashed var(--line);
   }
   .stub-code{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--brass);letter-spacing:0.1em;margin-bottom:14px;}
@@ -805,6 +814,12 @@ onUnmounted(() => {
   .stub p{color:var(--steel);font-size:0.9rem;margin-bottom:26px;}
   .stub-foot{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--steel);padding-top:12px;}
   .stub-foot b{color:var(--paper);}
+  .stub-btn{
+    margin-top:18px;width:100%;background:none;border:1px solid var(--line);color:var(--brass-bright);
+    padding:10px 18px;font-size:0.78rem;letter-spacing:0.04em;text-transform:uppercase;
+    cursor:pointer;transition:all .2s;font-family:'Work Sans',sans-serif;
+  }
+  .stub-btn:hover{border-color:var(--brass);background:rgba(176,141,87,0.08);}
 
   /* FLEET */
   .fleet{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);}

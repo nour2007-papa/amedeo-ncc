@@ -9,6 +9,7 @@
 //   SITE_SERVICE_ACCOUNT_KEY, FLEET_SERVICE_ACCOUNT_KEY
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import crypto from 'crypto';
 import { applySecurityMiddleware } from './security-middleware.js';
 
 function getAdminApp(name, envVar) {
@@ -51,18 +52,33 @@ function sanitizeUpdates(updates) {
   return clean;
 }
 
+// FIX: al momento della creazione (BookingForm.vue → sync-pending.js /
+// sync-webhook.js) il booking viene salvato con i campi serviceDate/flight/
+// people/bags — NON dataOra/volo/passeggeri/bagagli. Questi ultimi vengono
+// scritti solo dopo la PRIMA modifica del cliente (vedi EDITABLE_FIELDS).
+// Prima di allora, leggere solo b.dataOra/b.volo/... restituiva sempre
+// vuoto, e withinEditWindow() considerava b.dataOra assente → tornava
+// SEMPRE true, disattivando di fatto il limite delle 6 ore prima del ritiro.
+// pick() legge prima il campo "di modifica", e se assente ricade sul campo
+// "di creazione" originale.
+function pick(b, editField, creationField) {
+  const v = b[editField];
+  if (v !== undefined && v !== null && v !== '') return v;
+  return b[creationField] || '';
+}
+
 // Campi che il cliente può vedere (mai esporre editToken, fleetDocId, ecc.)
 function publicView(b) {
   return {
     name: b.name || '',
     service: b.service || '',
     tipoServizio: b.tipoServizio || '',
-    dataOra: b.dataOra || '',
+    dataOra: pick(b, 'dataOra', 'serviceDate'),
     zona: b.zona || '',
     destinazione: b.destinazione || b.hotel || '',
-    volo: b.volo || '',
-    passeggeri: b.passeggeri || '',
-    bagagli: b.bagagli || '',
+    volo: pick(b, 'volo', 'flight'),
+    passeggeri: pick(b, 'passeggeri', 'people'),
+    bagagli: pick(b, 'bagagli', 'bags'),
     details: b.details || '',
     confirmed: !!b.confirmed,
     cancelledByClient: !!b.cancelledByClient,
@@ -71,12 +87,31 @@ function publicView(b) {
 
 // La modifica è permessa solo fino a EDIT_WINDOW_HOURS prima del ritiro.
 // Se dataOra manca o non è valida, non blocchiamo (nessun orario da rispettare).
+//
+// ⚠️ CAVEAT (da confermare): se serviceDate in siteDb contiene solo una data
+// senza orario (es. "2026-09-05"), new Date() la interpreta come mezzanotte
+// UTC — il calcolo del cutoff sarà quindi approssimato finché il cliente non
+// imposta un dataOra preciso con la prima modifica. Non ho visibilità sul
+// formato esatto salvato da BookingForm.vue per confermarlo con certezza.
 function withinEditWindow(b) {
-  if (!b.dataOra) return true;
-  const pickup = new Date(b.dataOra);
+  const raw = pick(b, 'dataOra', 'serviceDate');
+  if (!raw) return true;
+  const pickup = new Date(raw);
   if (Number.isNaN(pickup.getTime())) return true;
   const cutoff = new Date(pickup.getTime() - EDIT_WINDOW_HOURS * 60 * 60 * 1000);
   return new Date() < cutoff;
+}
+
+// Confronto costante nel tempo (stesso pattern di verifyWebhookSignature in
+// sync-webhook.js). Anche se il token è casuale a 32 caratteri e un attacco
+// di forza bruta via timing è impraticabile in pratica, usare
+// timingSafeEqual costa niente e chiude il punto segnalato nell'audit.
+function tokensMatch(stored, provided) {
+  if (!stored || !provided) return false;
+  const a = Buffer.from(String(stored));
+  const b = Buffer.from(String(provided));
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 function buildFleetNote(b) {
@@ -122,9 +157,7 @@ export default async function handler(req, res) {
   }
   const b = snap.data();
 
-  // Confronto costante nel tempo non necessario qui: il token è casuale a
-  // 32 caratteri, non c'è un attacco di forza bruta praticabile via timing.
-  if (!b.editToken || b.editToken !== token) {
+  if (!tokensMatch(b.editToken, token)) {
     res.status(403).json({ error: 'invalid_token' });
     return;
   }

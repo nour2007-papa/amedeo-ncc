@@ -336,9 +336,12 @@ export default async function handler(req, res) {
       console.error('[sync-webhook] Failed to add to DLQ:', dlqError);
     }
     
+    // SICUREZZA (fix): non rimandiamo più error.message al chiamante — può
+    // contenere dettagli interni (nomi di campi, struttura dati, path di
+    // Firestore). Il dettaglio resta in console.error() sopra e nella DLQ;
+    // il chiamante riceve solo un errore generico.
     res.status(500).json({ 
       error: 'sync_failed', 
-      message: error.message,
       queuedForRetry: true 
     });
   }

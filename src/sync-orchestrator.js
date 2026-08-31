@@ -107,18 +107,25 @@ export class SyncOrchestrator {
       this.lastFailedAttemptAt.set(bookingId, Date.now());
 
       // BUG DIAGNOSTIC: "Missing or insufficient permissions" da solo non dice
-      // CON QUALE account/progetto ha provato a scrivere. Arricchiamo il
-      // messaggio con l'email/UID effettivi del fleetAuth al momento del
-      // fallimento e il projectId del fleetDb, così è visibile direttamente
-      // nel banner sul telefono senza bisogno di DevTools.
+      // CON QUALE account/progetto ha provato a scrivere. Arricchiamo la
+      // diagnostica con l'email/UID effettivi del fleetAuth al momento del
+      // fallimento e il projectId del fleetDb.
+      //
+      // SICUREZZA (fix): questi dati (uid/email/projectId) NON vengono più
+      // scritti dentro error.message — un error.message può finire loggato
+      // da strumenti esterni (Sentry, analytics, ecc.) se in futuro vengono
+      // aggiunti, e non è il posto giusto per dati che identificano un
+      // account. Restano disponibili solo su error.debugInfo, letto
+      // esplicitamente dal solo console.error() qui sotto (log locale del
+      // browser dell'admin, mai inviato altrove).
       if (error && error.code === 'permission-denied') {
         try {
           const currentFleetUser = fleetAuth ? fleetAuth.currentUser : null;
           const projectId = this.fleetDb ? this.fleetDb.app.options.projectId : 'unknown';
-          const diag = currentFleetUser
+          error.debugInfo = currentFleetUser
             ? `uid=${currentFleetUser.uid} email=${currentFleetUser.email} verified=${currentFleetUser.emailVerified} project=${projectId}`
             : `NESSUN utente autenticato su fleetAuth (progetto=${projectId})`;
-          error.message = `${error.message} [DEBUG: ${diag}]`;
+          console.error(`[SyncOrchestrator] permission-denied — ${error.debugInfo}`);
         } catch (diagErr) {
           console.warn('[SyncOrchestrator] Diagnostica permission-denied fallita:', diagErr);
         }

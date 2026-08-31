@@ -175,8 +175,12 @@ export function addSecurityHeaders(req, res, next) {
   // Referrer policy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-  // Content Security Policy (basic)
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;");
+  // Content Security Policy — queste risposte sono API JSON, non pagine
+  // HTML, quindi non serve permettere script/style inline (era incoerente
+  // con la CSP più stretta in vercel.json per il resto del sito).
+  // 'none' su tutto è la policy corretta per un endpoint che non renderizza
+  // mai contenuto nel browser.
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none';");
 
   return true;
 }

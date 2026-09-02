@@ -211,12 +211,19 @@ function determineFleetUpdates(booking) {
     updates.stato = 'nuovo_contatto';
   }
   
-  // تحديث الحقول الأخرى
-  if (booking.dataOra) updates.dataOra = booking.dataOra;
-  if (booking.destinazione) updates.destinazione = booking.destinazione;
+  // SICUREZZA (fix Snyk CWE-1287 - Improper Type Validation): booking.data
+  // arriva dal body del webhook, non da una fonte già validata come siteDb.
+  // La firma HMAC verifica la provenienza della richiesta ma non la forma
+  // dei dati al suo interno, quindi ogni campo va controllato per tipo
+  // prima di essere scritto o usato con metodi tipo .includes().
+  if (booking.dataOra && typeof booking.dataOra === 'string') updates.dataOra = booking.dataOra;
+  if (booking.destinazione && typeof booking.destinazione === 'string') updates.destinazione = booking.destinazione;
   if (booking.volo && typeof booking.volo === 'string') {
     // تحديث note لإضافة معلومات الرحلة
-    const existingNote = booking.note || '';
+    // (fix) existingNote يُقبل فقط لو من نوع string؛ غير كده أي قيمة أخرى
+    // (object/array/number) كانت هتخلي existingNote.includes() يكسر
+    // التطبيق أو يتصرف بشكل غير متوقع
+    const existingNote = typeof booking.note === 'string' ? booking.note : '';
     updates.note = existingNote.includes(`Volo: ${booking.volo}`) 
       ? existingNote 
       : `${existingNote} | Volo: ${booking.volo}`;

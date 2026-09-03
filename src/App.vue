@@ -4,8 +4,8 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import BookingForm from './BookingForm.vue';
-import griffinLogoLarge from './assets/griffin-logo-large.webp';
 import griffinLogoSmall from './assets/griffin-logo.webp';
+import grifoneHero from './assets/griffin-hero.webp';
 import { dict } from './i18n.js';
 import { services, fleet, trips, otherItalyImages, customTripImages } from './content.js';
 import { useVersionCheck } from './composables/useVersionCheck.js';
@@ -394,15 +394,14 @@ onUnmounted(() => {
     <p class="sub reveal delay-3" v-reveal>{{ t.hero_sub }}</p>
 
     <img
-      :src="griffinLogoLarge"
-      alt=""
-      aria-hidden="true"
+      :src="grifoneHero"
+      alt="Grifone NCC"
       class="hero-griffin reveal delay-3"
       v-reveal
       loading="lazy"
       fetchpriority="low"
-      width="529"
-      height="627"
+      width="400"
+      height="261"
       :style="{ '--griffin-float': griffinOffset + 'px' }"
     >
 
@@ -772,8 +771,8 @@ onUnmounted(() => {
   @media(min-width:901px){
     .hero-griffin{
       display:block;
-      position:absolute;top:-140px;right:0;width:170px;margin:0;z-index:0;
-      opacity:.85;pointer-events:none;user-select:none;
+      position:absolute;top:30px;right:0;width:220px;margin:0;z-index:0;
+      opacity:.92;pointer-events:none;user-select:none;
       transform:translateY(calc(-1 * var(--griffin-float,0px)));
       transition:transform .15s linear;
     }
@@ -781,7 +780,7 @@ onUnmounted(() => {
       position:relative;z-index:1;
     }
     html[dir="rtl"] .hero-griffin{
-      right:auto;left:0;transform:translateY(calc(-1 * var(--griffin-float,0px))) scaleX(-1);
+      right:auto;left:0;transform:translateY(calc(-1 * var(--griffin-float,0px)));
     }
   }
 

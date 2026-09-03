@@ -1,0 +1,73 @@
+diff --git a/api/security-middleware.js b/api/security-middleware.js
+index 071432d..a6a85c8 100644
+--- a/api/security-middleware.js
++++ b/api/security-middleware.js
+@@ -175,8 +175,12 @@ export function addSecurityHeaders(req, res, next) {
+   // Referrer policy
+   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+ 
+-  // Content Security Policy (basic)
+-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;");
++  // Content Security Policy — queste risposte sono API JSON, non pagine
++  // HTML, quindi non serve permettere script/style inline (era incoerente
++  // con la CSP più stretta in vercel.json per il resto del sito).
++  // 'none' su tutto è la policy corretta per un endpoint che non renderizza
++  // mai contenuto nel browser.
++  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none';");
+ 
+   return true;
+ }
+diff --git a/api/sync-webhook.js b/api/sync-webhook.js
+index 1a66572..55b3ad2 100644
+--- a/api/sync-webhook.js
++++ b/api/sync-webhook.js
+@@ -336,9 +336,12 @@ export default async function handler(req, res) {
+       console.error('[sync-webhook] Failed to add to DLQ:', dlqError);
+     }
+     
++    // SICUREZZA (fix): non rimandiamo più error.message al chiamante — può
++    // contenere dettagli interni (nomi di campi, struttura dati, path di
++    // Firestore). Il dettaglio resta in console.error() sopra e nella DLQ;
++    // il chiamante riceve solo un errore generico.
+     res.status(500).json({ 
+       error: 'sync_failed', 
+-      message: error.message,
+       queuedForRetry: true 
+     });
+   }
+diff --git a/src/sync-orchestrator.js b/src/sync-orchestrator.js
+index 1e83dac..e627d16 100644
+--- a/src/sync-orchestrator.js
++++ b/src/sync-orchestrator.js
+@@ -107,18 +107,25 @@ export class SyncOrchestrator {
+       this.lastFailedAttemptAt.set(bookingId, Date.now());
+ 
+       // BUG DIAGNOSTIC: "Missing or insufficient permissions" da solo non dice
+-      // CON QUALE account/progetto ha provato a scrivere. Arricchiamo il
+-      // messaggio con l'email/UID effettivi del fleetAuth al momento del
+-      // fallimento e il projectId del fleetDb, così è visibile direttamente
+-      // nel banner sul telefono senza bisogno di DevTools.
++      // CON QUALE account/progetto ha provato a scrivere. Arricchiamo la
++      // diagnostica con l'email/UID effettivi del fleetAuth al momento del
++      // fallimento e il projectId del fleetDb.
++      //
++      // SICUREZZA (fix): questi dati (uid/email/projectId) NON vengono più
++      // scritti dentro error.message — un error.message può finire loggato
++      // da strumenti esterni (Sentry, analytics, ecc.) se in futuro vengono
++      // aggiunti, e non è il posto giusto per dati che identificano un
++      // account. Restano disponibili solo su error.debugInfo, letto
++      // esplicitamente dal solo console.error() qui sotto (log locale del
++      // browser dell'admin, mai inviato altrove).
+       if (error && error.code === 'permission-denied') {
+         try {
+           const currentFleetUser = fleetAuth ? fleetAuth.currentUser : null;
+           const projectId = this.fleetDb ? this.fleetDb.app.options.projectId : 'unknown';
+-          const diag = currentFleetUser
++          error.debugInfo = currentFleetUser
+             ? `uid=${currentFleetUser.uid} email=${currentFleetUser.email} verified=${currentFleetUser.emailVerified} project=${projectId}`
+             : `NESSUN utente autenticato su fleetAuth (progetto=${projectId})`;
+-          error.message = `${error.message} [DEBUG: ${diag}]`;
++          console.error(`[SyncOrchestrator] permission-denied — ${error.debugInfo}`);
+         } catch (diagErr) {
+           console.warn('[SyncOrchestrator] Diagnostica permission-denied fallita:', diagErr);
+         }

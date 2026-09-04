@@ -1,4 +1,5 @@
-import { createApp } from 'vue';
+import { createApp, h } from 'vue';
+import { airports, airportSlugs } from './data/airports.js';
 
 // La pagina di gestione prenotazioni si apre solo con questo link segreto:
 // https://amedeo-ncc.vercel.app/#gestione-9f3k2x7q
@@ -8,6 +9,11 @@ const isAdminRoute = window.location.hash.startsWith('#gestione-9f3k2x7q');
 // Pagina di modifica/annullamento prenotazione, aperta dal link segreto
 // inviato al cliente su WhatsApp alla conferma: #modifica-{bookingId}-{token}
 const isEditRoute = window.location.hash.startsWith('#modifica-');
+
+// صفحات المطارات — /aeroporti/malpensa, /aeroporti/linate, /aeroporti/bergamo
+// (بديل خفيف لـ vue-router، بنفس أسلوب الـ hash routing الموجود أصلاً)
+const airportMatch = window.location.pathname.match(/^\/aeroporti\/([a-z-]+)\/?$/);
+const airportSlug = airportMatch && airportSlugs.includes(airportMatch[1]) ? airportMatch[1] : null;
 
 // La PWA (installazione come app sul telefono) è attiva SOLO per la
 // pagina di gestione: i visitatori del sito pubblico non vedono manifest
@@ -65,16 +71,24 @@ if (isAdminRoute) {
   }
 }
 
-// Import dinamico: il sito pubblico e il pannello di gestione finiscono in
-// due file JS separati, così un visitatore normale non scarica mai il
-// codice di Admin.vue (Firebase Auth, tabelle prenotazioni, ecc.) e
-// viceversa — invece di un unico file grande con tutto dentro.
+// Import dinamico: il sito pubblico, il pannello di gestione, la pagina di
+// modifica e le pagine aeroporto finiscono ognuno nel proprio file JS,
+// così un visitatore normale non scarica mai codice che non gli serve.
 const loadComponent = isAdminRoute
   ? import('./Admin.vue')
   : isEditRoute
   ? import('./Modifica.vue')
+  : airportSlug
+  ? import('./AeroportoPage.vue')
   : import('./App.vue');
 
 loadComponent.then((mod) => {
-  createApp(mod.default).mount('#app');
+  if (airportSlug) {
+    // AeroportoPage.vue بياخد data كـ prop بدل ما يقرأها بنفسه
+    createApp({
+      render: () => h(mod.default, { slug: airportSlug, data: airports[airportSlug] }),
+    }).mount('#app');
+  } else {
+    createApp(mod.default).mount('#app');
+  }
 });

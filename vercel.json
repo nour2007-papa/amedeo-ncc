@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/aeroporti/:slug",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -59,6 +59,16 @@ onUnmounted(() => clearInterval(rotateTimer));
 const currentLang = ref('it');
 const t = computed(() => dict[currentLang.value]);
 
+/* عناوين عمود "روابط المطارات" في الفوتر — نص محلي صغير هنا بدل
+   إضافة مفاتيح جديدة لـ i18n.js (تقدر تنقلهم لملف الترجمة الرسمي
+   لاحقًا لو حبيت تبقى متسقة مع باقي النصوص). */
+const AIRPORT_LINK_LABELS = {
+  it: { heading: 'Transfer Aeroporto', malpensa: 'Malpensa (MXP)', linate: 'Linate (LIN)', bergamo: 'Bergamo Orio al Serio (BGY)' },
+  en: { heading: 'Airport Transfer', malpensa: 'Malpensa (MXP)', linate: 'Linate (LIN)', bergamo: 'Bergamo Orio al Serio (BGY)' },
+  ar: { heading: 'نقل من وإلى المطار', malpensa: 'مالبينسا (MXP)', linate: 'ليناتي (LIN)', bergamo: 'بيرجامو أوريو آل سيريو (BGY)' },
+};
+const airportLinksLabel = computed(() => AIRPORT_LINK_LABELS[currentLang.value]);
+
 watch(currentLang, (lang) => {
   document.documentElement.setAttribute('lang', lang);
   document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
@@ -596,6 +606,14 @@ onUnmounted(() => {
         <a :href="`tel:+${WHATSAPP_NUMBER}`" aria-label="Chiama il numero +39 352 000 3122">+39 352 000 3122</a>
         <a href="mailto:amedeo018@libero.it" aria-label="Invia email a amedeo018@libero.it">amedeo018@libero.it</a>
         <a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" aria-label="Scrivi su WhatsApp">WhatsApp</a>
+      </nav>
+    </div>
+    <div class="footer-col">
+      <h4>{{ airportLinksLabel.heading }}</h4>
+      <nav aria-label="Transfer aeroporti">
+        <a href="/aeroporti/malpensa">{{ airportLinksLabel.malpensa }}</a>
+        <a href="/aeroporti/linate">{{ airportLinksLabel.linate }}</a>
+        <a href="/aeroporti/bergamo">{{ airportLinksLabel.bergamo }}</a>
       </nav>
     </div>
   </div>

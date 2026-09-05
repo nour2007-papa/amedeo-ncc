@@ -1,5 +1,5 @@
 export const services = [
-  { code: 'RT · 001', titleKey: 's1_title', descKey: 's1_desc', tag1: 'MXP / LIN / BGY', tag2: 'H24' },
+  { code: 'RT · 001', titleKey: 's1_title', descKey: 's1_desc', tag1: 'MXP / LIN / BGY', tag2: 'H24', airport: true },
   { code: 'RT · 002', titleKey: 's2_title', descKey: 's2_desc', tag1: 'MILANO', tag2: 'MEZZA/GG' },
   { code: 'RT · 003', titleKey: 's3_title', descKey: 's3_desc', tag1: 'MILANO / LOMB.', tag2: 'SU RICH.' },
   { code: 'RT · 004', titleKey: 's4_title', descKey: 's4_desc', tag1: 'ON DEMAND', tag2: 'PREV. 48H' },

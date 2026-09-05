@@ -9,7 +9,6 @@
 // لكل لغة، من غير ما يستنى تنفيذ الـ JavaScript.
 
 import { preview } from 'vite';
-import puppeteer from 'puppeteer';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -31,11 +30,28 @@ const ROUTES = [
 
 const PORT = 4173;
 
+// على Vercel (بيئة Linux serverless) بنستخدم Chromium خفيف متوافق مع serverless.
+// محليًا (ويندوز/ماك) بنستخدم Puppeteer العادي.
+async function getBrowser() {
+  if (process.env.VERCEL) {
+    const chromium = (await import('@sparticuz/chromium')).default;
+    const puppeteerCore = (await import('puppeteer-core')).default;
+    return puppeteerCore.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
+  }
+  const puppeteer = (await import('puppeteer')).default;
+  return puppeteer.launch({ args: ['--no-sandbox'] });
+}
+
 async function run() {
   const server = await preview({ preview: { port: PORT, strictPort: true } });
   const base = `http://localhost:${PORT}`;
 
-  const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
+  const browser = await getBrowser();
 
   for (const route of ROUTES) {
     const page = await browser.newPage();

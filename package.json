@@ -10,8 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^149.0.0",
     "firebase": "^12.16.0",
     "firebase-admin": "^14.3.0",
+    "puppeteer-core": "^25.10.0",
     "vue": "^3.4.0"
   },
   "devDependencies": {

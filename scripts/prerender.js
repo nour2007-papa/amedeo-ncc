@@ -59,7 +59,14 @@ async function run() {
       await page.goto(`${base}${route}`, { waitUntil: 'networkidle0', timeout: 30000 });
       // مهلة صغيرة إضافية عشان Vue يخلص أي render/watch متأخر (زي تحديث الـ title)
       await new Promise((r) => setTimeout(r, 300));
-      const html = await page.content();
+      let html = await page.content();
+
+      // مهم: Vite بيحقن روابط modulepreload/stylesheet بمسارات مطلقة
+      // (http://localhost:4173/assets/...) بدل مسارات نسبية. لو سابناها
+      // زي ما هي هتتخزن في dist/index.html وتترفع على production، وهيحاول
+      // المتصفح يتصل بـ localhost فعليًا → Mixed Content + CSP errors.
+      // بنحولها هنا لمسارات نسبية قبل الحفظ.
+      html = html.split(base).join('');
 
       const outDir = path.join('dist', route === '/' ? '' : route);
       fs.mkdirSync(outDir, { recursive: true });

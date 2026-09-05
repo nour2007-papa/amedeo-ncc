@@ -3,6 +3,22 @@
     {
       "source": "/aeroporti/:slug",
       "destination": "/index.html"
+    },
+    {
+      "source": "/en",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/en/aeroporti/:slug",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ar/aeroporti/:slug",
+      "destination": "/index.html"
     }
   ],
   "headers": [

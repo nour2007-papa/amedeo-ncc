@@ -56,7 +56,13 @@ onUnmounted(() => clearInterval(rotateTimer));
 /* =========================================================
    Language state
    ========================================================= */
-const currentLang = ref('it');
+function detectLangFromPath() {
+  const p = window.location.pathname;
+  if (p === '/en' || p.startsWith('/en/')) return 'en';
+  if (p === '/ar' || p.startsWith('/ar/')) return 'ar';
+  return 'it';
+}
+const currentLang = ref(detectLangFromPath());
 const t = computed(() => dict[currentLang.value]);
 
 /* عناوين عمود "روابط المطارات" في الفوتر — نص محلي صغير هنا بدل
@@ -74,8 +80,22 @@ watch(currentLang, (lang) => {
   document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
 }, { immediate: true });
 
+onMounted(() => {
+  window.addEventListener('popstate', onPopState);
+});
+onUnmounted(() => {
+  window.removeEventListener('popstate', onPopState);
+});
+
 function setLang(lang) {
   currentLang.value = lang;
+  const path = window.location.pathname.replace(/^\/(en|ar)(?=\/|$)/, '') || '/';
+  const newPath = lang === 'it' ? path : `/${lang}${path === '/' ? '' : path}`;
+  window.history.pushState({}, '', newPath);
+}
+
+function onPopState() {
+  currentLang.value = detectLangFromPath();
 }
 
 /* Departure board translates automatically because it now reads
@@ -463,7 +483,15 @@ onUnmounted(() => {
       <div class="stub-code">{{ s.code }}</div>
       <h3>{{ t[s.titleKey] }}</h3>
       <p>{{ t[s.descKey] }}</p>
-      <div class="stub-foot"><span>{{ s.tag1 }}</span><b>{{ s.tag2 }}</b></div>
+      <div class="stub-foot">
+        <span v-if="!s.airport">{{ s.tag1 }}</span>
+        <nav v-else class="stub-airport-links" aria-label="Transfer aeroporti">
+          <a href="/aeroporti/malpensa">{{ airportLinksLabel.malpensa }}</a>
+          <a href="/aeroporti/linate">{{ airportLinksLabel.linate }}</a>
+          <a href="/aeroporti/bergamo">{{ airportLinksLabel.bergamo }}</a>
+        </nav>
+        <b>{{ s.tag2 }}</b>
+      </div>
       <button class="stub-btn" @click="selectService(i)" :aria-label="`${t.btn_book_service}: ${t[s.titleKey]}`">{{ t.btn_book_service }}</button>
     </article>
   </div>
@@ -606,14 +634,6 @@ onUnmounted(() => {
         <a :href="`tel:+${WHATSAPP_NUMBER}`" aria-label="Chiama il numero +39 352 000 3122">+39 352 000 3122</a>
         <a href="mailto:amedeo018@libero.it" aria-label="Invia email a amedeo018@libero.it">amedeo018@libero.it</a>
         <a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" aria-label="Scrivi su WhatsApp">WhatsApp</a>
-      </nav>
-    </div>
-    <div class="footer-col">
-      <h4>{{ airportLinksLabel.heading }}</h4>
-      <nav aria-label="Transfer aeroporti">
-        <a href="/aeroporti/malpensa">{{ airportLinksLabel.malpensa }}</a>
-        <a href="/aeroporti/linate">{{ airportLinksLabel.linate }}</a>
-        <a href="/aeroporti/bergamo">{{ airportLinksLabel.bergamo }}</a>
       </nav>
     </div>
   </div>
@@ -854,6 +874,9 @@ onUnmounted(() => {
   .stub p{color:var(--steel);font-size:0.9rem;margin-bottom:26px;}
   .stub-foot{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--steel);padding-top:12px;}
   .stub-foot b{color:var(--paper);}
+  .stub-airport-links{display:flex;gap:10px;flex-wrap:wrap;}
+  .stub-airport-links a{color:var(--steel);text-decoration:underline;text-underline-offset:2px;transition:color .2s;}
+  .stub-airport-links a:hover{color:var(--brass-bright);}
   .stub-btn{
     margin-top:18px;width:100%;background:none;border:1px solid var(--line);color:var(--brass-bright);
     padding:10px 18px;font-size:0.78rem;letter-spacing:0.04em;text-transform:uppercase;

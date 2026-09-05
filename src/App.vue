@@ -75,6 +75,29 @@ const AIRPORT_LINK_LABELS = {
 };
 const airportLinksLabel = computed(() => AIRPORT_LINK_LABELS[currentLang.value]);
 
+/* SEO: title + meta description لازم يتغيروا فعليًا في الـ DOM مع كل
+   لغة — ده أساسي عشان الـ prerender script يلتقط نسخة صح لكل لغة. */
+const SEO_META = {
+  it: {
+    title: 'Autista Privato Milano | NCC Transfer Aeroporto Malpensa Linate Orio | Grifone NCC',
+    description: 'Servizio NCC Milano e Lombardia. Autista privato professionale per transfer aeroporto Malpensa, Linate, Orio al Serio. Mercedes premium, rappresentanza business, eventi e tour in tutta Italia. Prenotazione 24/7, riservatezza e puntualità.',
+  },
+  en: {
+    title: 'Private Chauffeur Milan | NCC Airport Transfer Malpensa Linate Orio | Grifone NCC',
+    description: 'Premium NCC chauffeur service in Milan and Lombardy. Airport transfers to Malpensa, Linate, Orio al Serio. Mercedes fleet, business travel, events and tours across Italy. 24/7 booking, privacy and punctuality.',
+  },
+  ar: {
+    title: 'سائق خاص ميلانو | نقل من وإلى مطارات مالبينسا وليناتي وأوريو | جريفوني NCC',
+    description: 'خدمة سائق خاص احترافية في ميلانو ولومبارديا. نقل من وإلى مطارات مالبينسا وليناتي وأوريو آل سيريو. أسطول مرسيدس فاخر، تنقلات أعمال، فعاليات وجولات سياحية في إيطاليا. حجز على مدار الساعة، خصوصية ودقة في المواعيد.',
+  },
+};
+watch(currentLang, (lang) => {
+  const meta = SEO_META[lang];
+  if (!meta) return;
+  document.title = meta.title;
+  document.querySelector('meta[name="description"]')?.setAttribute('content', meta.description);
+}, { immediate: true });
+
 watch(currentLang, (lang) => {
   document.documentElement.setAttribute('lang', lang);
   document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');

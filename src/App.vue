@@ -405,12 +405,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-<noscript><div style="background:#B08D57;color:#0C0F12;padding:12px 28px;text-align:center;font-size:0.88rem;font-weight:500;">Questo sito richiede JavaScript per funzionare correttamente. Abilita JavaScript nel tuo browser.</div></noscript>
+<noscript><div class="noscript-banner">Questo sito richiede JavaScript per funzionare correttamente. Abilita JavaScript nel tuo browser.</div></noscript>
 
 <header role="banner">
   <nav class="wrap" role="navigation" aria-label="Navigazione principale">
     <div class="logo">
-      <img :src="griffinLogoSmall" alt="Grifone NCC - Logo autista privato Milano" width="101" height="120" style="height:38px;width:auto;" />
+      <img :src="griffinLogoSmall" alt="Grifone NCC - Logo autista privato Milano" width="101" height="120" class="logo-img" />
       <span class="logo-text">GRIFONE <b>NCC</b></span>
     </div>
     <div class="nav-links" :class="{ active: navOpen }">
@@ -420,7 +420,7 @@ onUnmounted(() => {
       <a href="#viaggi" @click="navOpen=false" aria-label="Vai alla sezione Viaggi">{{ t.nav_trips }}</a>
       <a href="#contatti" @click="navOpen=false" aria-label="Vai alla sezione Contatti">{{ t.nav_contact }}</a>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;">
+    <div class="nav-actions">
       <div class="lang-switch" role="group" aria-label="Selezione lingua / Language selection / اختيار اللغة">
         <button v-for="l in ['it','en','ar']" :key="l" :data-lang="l"
                 :class="{ active: currentLang===l }" :aria-pressed="currentLang===l"
@@ -584,15 +584,15 @@ onUnmounted(() => {
     <div class="contact-info">
       <div class="info-line">
         <span>{{ t.i_phone }}</span>
-        <span><a :href="`tel:+${WHATSAPP_NUMBER}`" style="color:var(--brass-bright);text-decoration:none;" aria-label="Chiama il numero +39 352 000 3122">+39 352 000 3122</a></span>
+        <span><a :href="`tel:+${WHATSAPP_NUMBER}`" class="contact-link" aria-label="Chiama il numero +39 352 000 3122">+39 352 000 3122</a></span>
       </div>
       <div class="info-line">
         <span>{{ t.i_whatsapp }}</span>
-        <span><a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" style="color:var(--brass-bright);text-decoration:none;" aria-label="Scrivi su WhatsApp al numero +39 352 000 3122">+39 352 000 3122</a></span>
+        <span><a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" class="contact-link" aria-label="Scrivi su WhatsApp al numero +39 352 000 3122">+39 352 000 3122</a></span>
       </div>
       <div class="info-line">
         <span>{{ t.i_mail }}</span>
-        <span><a href="mailto:amedeo018@libero.it" style="color:var(--brass-bright);text-decoration:none;" aria-label="Invia email a amedeo018@libero.it">amedeo018@libero.it</a></span>
+        <span><a href="mailto:amedeo018@libero.it" class="contact-link" aria-label="Invia email a amedeo018@libero.it">amedeo018@libero.it</a></span>
       </div>
       <div class="info-line">
         <span>{{ t.i_area }}</span>
@@ -724,6 +724,11 @@ onUnmounted(() => {
     --line:#262B31;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
+  /* كلاسات بديلة عن inline style="" — عشان نقدر نشيل 'unsafe-inline' من style-src في الـ CSP */
+  .noscript-banner{background:#B08D57;color:#0C0F12;padding:12px 28px;text-align:center;font-size:0.88rem;font-weight:500;}
+  .logo-img{height:38px;width:auto;}
+  .nav-actions{display:flex;gap:10px;align-items:center;}
+  .contact-link{color:var(--brass-bright);text-decoration:none;}
   html{scroll-behavior:smooth;overflow-x:hidden;max-width:100vw;}
   body{
     background:var(--ink);

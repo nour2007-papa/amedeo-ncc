@@ -27,7 +27,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://amedeo-ncc.firebaseapp.com https://amedeo-fleet.firebaseapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://amedeo-ncc.firebaseapp.com https://amedeo-fleet.firebaseapp.com wss:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types default; upgrade-insecure-requests;"
+          "value": "default-src 'self'; script-src 'self' https://amedeo-ncc.firebaseapp.com https://amedeo-fleet.firebaseapp.com; style-src 'self' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://amedeo-ncc.firebaseapp.com https://amedeo-fleet.firebaseapp.com wss:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types default; upgrade-insecure-requests;"
         },
         {
           "key": "X-Frame-Options",

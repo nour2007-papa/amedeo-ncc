@@ -238,13 +238,15 @@ function closePrivacyModal() {
   privacyOpen.value = false;
   document.body.style.overflow = '';
 }
-onMounted(() => {
-  // f_gdpr / cookie_text in the dict contain a raw onclick="openPrivacyModal()"
-  // (ported as-is from the static HTML and rendered via v-html), so the
-  // functions need to exist on window for that inline handler to find them.
-  window.openPrivacyModal = openPrivacyModal;
-  window.closePrivacyModal = closePrivacyModal;
-});
+// cookie_text (i18n) بيحتوي على رابط <a class="privacy-modal-link"> جوه v-html.
+// بدل onclick خام (كان بيتصادم مع CSP script-src)، بنستخدم event delegation:
+// نمسك أي نقرة جوه الـ span ونشيك هل جت من الرابط ده.
+function handleCookieTextClick(e) {
+  if (e.target.closest && e.target.closest('.privacy-modal-link')) {
+    e.preventDefault();
+    openPrivacyModal();
+  }
+}
 
 const cookieVisible = ref(false);
 onMounted(() => {
@@ -702,7 +704,7 @@ onUnmounted(() => {
 
 <!-- COOKIE BANNER -->
 <div class="cookie-banner" :class="{ visible: cookieVisible }" role="alert" aria-live="polite">
-  <span v-html="t.cookie_text"></span>
+  <span v-html="t.cookie_text" @click="handleCookieTextClick"></span>
   <div class="cookie-btns">
     <button @click="acceptCookies" aria-label="Accetta i cookie">{{ t.cookie_accept }}</button>
     <button @click="declineCookies" aria-label="Rifiuta i cookie non necessari">{{ t.cookie_dismiss }}</button>

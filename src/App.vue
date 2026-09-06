@@ -270,6 +270,18 @@ function declineCookies() { persistCookieChoice('declined'); }
    ========================================================= */
 const vReveal = {
   mounted(el) {
+    // Fix CLS: se l'elemento e' gia' visibile al primo render (above the
+    // fold, es. hero), niente animazione — altrimenti il transform
+    // translateY viene conteggiato come layout shift dalla Layout
+    // Instability API anche se e' solo un transform, perche' non e'
+    // preceduto da un'interazione utente. Sotto la piega l'effetto
+    // reveal-on-scroll resta invariato.
+    const rect = el.getBoundingClientRect();
+    const alreadyVisible = rect.top < window.innerHeight && rect.bottom > 0;
+    if (alreadyVisible) {
+      el.classList.add('active');
+      return;
+    }
     el.__revealIO = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
@@ -453,8 +465,8 @@ onUnmounted(() => {
       alt="Grifone NCC"
       class="hero-griffin reveal delay-3"
       v-reveal
-      loading="lazy"
-      fetchpriority="low"
+      loading="eager"
+      fetchpriority="high"
       width="400"
       height="261"
       :style="{ '--griffin-float': griffinOffset + 'px' }"

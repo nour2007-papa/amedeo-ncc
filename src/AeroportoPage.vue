@@ -186,7 +186,7 @@ function submitForm() {
       </section>
 
       <section class="section wrap map-section">
-        <iframe class="airport-map" :src="mapSrc" loading="eager" :title="t.title"></iframe>
+        <iframe class="airport-map" :src="mapSrc" loading="lazy" width="100%" height="460" :title="t.title"></iframe>
       </section>
 
       <section class="section wrap" id="prenota">

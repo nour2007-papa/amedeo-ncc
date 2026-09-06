@@ -436,6 +436,7 @@ function submitForm() {
     input{font-size:16px;}
     .whatsapp-fab{width:52px;height:52px;bottom:90px;right:16px;}
     .whatsapp-fab svg{width:27px;height:27px;}
+    .airport-map{height:560px;}
     html[dir="rtl"] .whatsapp-fab{left:16px;}
   }
 </style>

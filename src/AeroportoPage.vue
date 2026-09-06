@@ -53,15 +53,20 @@ function goHome() {
   window.location.href = '/';
 }
 
-/* ---------- خريطة المطار ---------- */
-const mapQueries = {
-  malpensa: 'Aeroporto di Milano-Malpensa, Ferno VA',
-  linate: 'Aeroporto di Milano Linate, Segrate MI',
-  bergamo: 'Aeroporto di Bergamo-Orio al Serio, Orio al Serio BG',
+/* ---------- خريطة المطار ----------
+   OpenStreetMap بدل Google Maps: بيشتغل فورًا وبدون كوكيز طرف-ثالث،
+   عكس Google اللي بيرجع بديل صغير غير تفاعلي لو الكوكيز محجوبة (زي Brave). */
+const mapCoords = {
+  malpensa: { lat: 45.6306, lon: 8.7281 },
+  linate: { lat: 45.4451, lon: 9.2767 },
+  bergamo: { lat: 45.6739, lon: 9.7042 },
 };
-const mapSrc = computed(() =>
-  `https://www.google.com/maps?q=${encodeURIComponent(mapQueries[props.slug] || t.value.title)}&output=embed`
-);
+const mapSrc = computed(() => {
+  const c = mapCoords[props.slug] || mapCoords.malpensa;
+  const dLat = 0.012, dLon = 0.02;
+  const bbox = [c.lon - dLon, c.lat - dLat, c.lon + dLon, c.lat + dLat].join(',');
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${c.lat},${c.lon}`;
+});
 
 /* الفورم — نفس منطق البوكينج فورم البسيط، بس هنا بيبعت مباشرة على واتساب
    (نفس الأسلوب المستخدم في نسخ المعاينة القديمة). */
@@ -181,7 +186,7 @@ function submitForm() {
       </section>
 
       <section class="section wrap map-section">
-        <iframe class="airport-map" :src="mapSrc" loading="lazy" referrerpolicy="no-referrer-when-downgrade" :title="t.title"></iframe>
+        <iframe class="airport-map" :src="mapSrc" loading="eager" :title="t.title"></iframe>
       </section>
 
       <section class="section wrap" id="prenota">
@@ -400,7 +405,7 @@ function submitForm() {
 
   /* MAP */
   .map-section{padding-top:0;}
-  .airport-map{width:100%;height:340px;border:1px solid var(--line);filter:grayscale(35%) invert(92%) contrast(90%);}
+  .airport-map{width:100%;height:460px;border:1px solid var(--line);filter:grayscale(35%) invert(92%) contrast(90%);}
 
   /* FOOTER */
   footer{border-top:1px solid var(--line);padding:26px 0;color:var(--steel);font-size:0.78rem;}

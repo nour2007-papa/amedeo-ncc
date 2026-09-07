@@ -1,9 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { firebaseConfig } from './firebase.js';
-import BookingForm from './BookingForm.vue';
+import { ref, reactive, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue';
 import griffinLogoSmall from './assets/griffin-logo.webp';
 import grifoneHero from './assets/griffin-hero.webp';
 import { dict } from './i18n.js';
@@ -14,22 +10,30 @@ import { useVersionCheck } from './composables/useVersionCheck.js';
 useVersionCheck();
 
 /* =========================================================
-   Firebase — saves each booking request to Firestore so it
-   shows up in the admin dashboard (Admin.vue). This never
-   blocks or breaks the booking form: if Firebase isn't
-   configured yet, or the write fails, we just log it and the
-   WhatsApp handoff continues normally.
+   BookingForm + Firebase محمّلين كسول (lazy) دلوقتي بدل ما يتحمّلوا
+   مع أول تحميل للصفحة. الفورم موجود في قسم "Prenota" تحت في الصفحة
+   أصلاً (الزائر محتاج يعمل scroll أو يدوس CTA عشان يوصله)، وFirebase
+   (firebase/app + firestore) مكتبة تقيلة نسبيًا كانت بتتحمّل وتتفسّر
+   مع الـ bundle الرئيسي حتى لو محدش هيحجز فورًا — وده كان بيأخر
+   الـ First/Largest Contentful Paint على شبكة 4G بطيئة.
+   الحل: نأجّل استيراد الاتنين لحد ما الكومبوننت الفعلي يتحط في
+   الصفحة (defineAsyncComponent) بدل ما يكونوا جزء من الباندل الأولي.
    ========================================================= */
-let db = null;
-try {
-  const fbApp = initializeApp(firebaseConfig);
-  db = getFirestore(fbApp);
-} catch (e) {
-  console.warn('Firebase non configurato:', e);
-}
-
-/* Il salvataggio su Firestore ora avviene dentro BookingForm.vue
-   (riceve `db` come prop) — questa funzione non serve più qui. */
+const BookingForm = defineAsyncComponent(() => import('./BookingForm.vue'));
+const db = ref(null);
+onMounted(async () => {
+  try {
+    const [{ initializeApp }, { getFirestore }, { firebaseConfig }] = await Promise.all([
+      import('firebase/app'),
+      import('firebase/firestore'),
+      import('./firebase.js'),
+    ]);
+    const fbApp = initializeApp(firebaseConfig);
+    db.value = getFirestore(fbApp);
+  } catch (e) {
+    console.warn('Firebase non configurato:', e);
+  }
+});
 
 /* =========================================================
    Structured content — services / fleet / trips driven by

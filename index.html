@@ -43,16 +43,15 @@
   <meta property="og:locale" content="it_IT">
   <meta property="og:site_name" content="Grifone NCC">
 
-  <!-- Preconnect to external domains -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://images.unsplash.com">
-
-  <!-- LCP Optimization: Preload Hero Image -->
+  <!-- LCP Optimization: Preload Hero Image with High Priority -->
   <link rel="preload" as="image" href="https://images.unsplash.com/photo-1589199928766-31ac1fa51e2c?fm=webp&q=80&w=800&auto=format&fit=crop" fetchpriority="high">
 
-  <!-- Optimized Non-Blocking Fonts Load -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&family=Cairo:wght@400;600;700&display=swap">
+  <!-- System Font Fallback to prevent layout shifts and blocking -->
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+  </style>
 
   <!-- Schema.org JSON-LD -->
   <script type="application/ld+json">

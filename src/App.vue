@@ -10,18 +10,21 @@ import { useVersionCheck } from './composables/useVersionCheck.js';
 useVersionCheck();
 
 /* =========================================================
-   BookingForm + Firebase محمّلين كسول (lazy) دلوقتي بدل ما يتحمّلوا
-   مع أول تحميل للصفحة. الفورم موجود في قسم "Prenota" تحت في الصفحة
-   أصلاً (الزائر محتاج يعمل scroll أو يدوس CTA عشان يوصله)، وFirebase
-   (firebase/app + firestore) مكتبة تقيلة نسبيًا كانت بتتحمّل وتتفسّر
-   مع الـ bundle الرئيسي حتى لو محدش هيحجز فورًا — وده كان بيأخر
-   الـ First/Largest Contentful Paint على شبكة 4G بطيئة.
-   الحل: نأجّل استيراد الاتنين لحد ما الكومبوننت الفعلي يتحط في
-   الصفحة (defineAsyncComponent) بدل ما يكونوا جزء من الباندل الأولي.
+   BookingForm + Firebase محمّلين كسول (lazy) — بس مش من onMounted
+   مباشرة (كان ده الغلط: كان بيتحمّل فورًا بعد أول رسم للصفحة
+   ويزاحم موارد الـ LCP على نفس الباندويث، فالـ score نزل من 72
+   لـ 68). دلوقتي بنستنى لحد ما قسم "Contatti/Prenota" (اللي فيه
+   الفورم) يقرب من الشاشة فعلاً (IntersectionObserver + rootMargin
+   200px) قبل ما نجيب Firebase، عشان يبقى جاهز لما المستخدم يوصل
+   من غير ما يزاحم أي حاجة في اللحظة الحرجة الأولى.
    ========================================================= */
 const BookingForm = defineAsyncComponent(() => import('./BookingForm.vue'));
 const db = ref(null);
-onMounted(async () => {
+const bookingSectionEl = ref(null);
+let firebaseLoaded = false;
+async function loadFirebase() {
+  if (firebaseLoaded) return;
+  firebaseLoaded = true;
   try {
     const [{ initializeApp }, { getFirestore }, { firebaseConfig }] = await Promise.all([
       import('firebase/app'),
@@ -33,6 +36,16 @@ onMounted(async () => {
   } catch (e) {
     console.warn('Firebase non configurato:', e);
   }
+}
+onMounted(() => {
+  if (!bookingSectionEl.value) { loadFirebase(); return; }
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some(en => en.isIntersecting)) {
+      loadFirebase();
+      io.disconnect();
+    }
+  }, { rootMargin: '200px' });
+  io.observe(bookingSectionEl.value);
 });
 
 /* =========================================================
@@ -583,7 +596,10 @@ onUnmounted(() => {
     <div class="tag mono">{{ t.video_tag }}</div>
   </div>
   <div class="video-gallery video-gallery--single">
-    <video class="promo-video" controls muted playsinline preload="none" :poster="grifoneHero" aria-label="Video promozionale Grifone NCC - Servizio autista privato Milano">
+    <!-- شلنا poster="grifoneHero": كانت بتحمّل صورة الهيرو الكاملة (120.5 KiB) بس عشان
+         تبقى بوستر الفيديو، ده هدر واضح ظهر في تقرير PageSpeed. بدون poster + preload="none"
+         الفيديو مش بيطلب أي بايت من الشبكة لحد ما المستخدم يدوس Play. -->
+    <video class="promo-video" controls muted playsinline preload="none" aria-label="Video promozionale Grifone NCC - Servizio autista privato Milano">
       <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786929691/video5769265625520152920.mp4" type="video/mp4">
     </video>
   </div>
@@ -610,7 +626,7 @@ onUnmounted(() => {
   </div>
 </section>
 
-<section class="section wrap" id="contatti" aria-labelledby="contact-title">
+<section class="section wrap" id="contatti" aria-labelledby="contact-title" ref="bookingSectionEl">
   <div class="section-head reveal" v-reveal>
     <h2 id="contact-title">{{ t.contact_title }}</h2>
     <div class="tag mono">{{ t.contact_tag }}</div>

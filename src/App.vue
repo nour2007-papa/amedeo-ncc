@@ -409,12 +409,32 @@ function tickWorldClocks() {
     tickerClocks[i + worldClocks.length].time = time;
   });
 }
-onMounted(() => {
+/* التبويب لما يكون في الخلفية (مثلاً المستخدم فاتح تبويب تاني) الـ
+   setInterval فاضل شغال ويستهلك CPU من غير أي فايدة لأن التيكر مش
+   ظاهر أصلاً. بنوقفه لما الصفحة تخبي (document.hidden) وبنشغّله تاني
+   لما يرجع المستخدم، بعد ما نحدّث الوقت فورًا عشان ميفضلش القديم شوية. */
+function startClocksTimer() {
+  if (clocksTimer) return;
   tickWorldClocks();
   clocksTimer = setInterval(tickWorldClocks, 1000);
+}
+function stopClocksTimer() {
+  if (clocksTimer) {
+    clearInterval(clocksTimer);
+    clocksTimer = null;
+  }
+}
+function onClocksVisibilityChange() {
+  if (document.hidden) stopClocksTimer();
+  else startClocksTimer();
+}
+onMounted(() => {
+  startClocksTimer();
+  document.addEventListener('visibilitychange', onClocksVisibilityChange);
 });
 onUnmounted(() => {
-  if (clocksTimer) clearInterval(clocksTimer);
+  stopClocksTimer();
+  document.removeEventListener('visibilitychange', onClocksVisibilityChange);
 });
 </script>
 
@@ -559,7 +579,7 @@ onUnmounted(() => {
     <div class="tag mono">{{ t.video_tag }}</div>
   </div>
   <div class="video-gallery video-gallery--single">
-    <video class="promo-video" controls muted playsinline preload="metadata" aria-label="Video promozionale Grifone NCC - Servizio autista privato Milano">
+    <video class="promo-video" controls muted playsinline preload="none" :poster="grifoneHero" aria-label="Video promozionale Grifone NCC - Servizio autista privato Milano">
       <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786929691/video5769265625520152920.mp4" type="video/mp4">
     </video>
   </div>
@@ -679,7 +699,7 @@ onUnmounted(() => {
     <div class="clocks-ticker-inner">
       <span v-for="(c, i) in tickerClocks" :key="i" class="clock-ticker-item" :class="{ 'is-base': c.base }">
         <span class="clock-ticker-dot" v-if="c.base"></span>
-        <img class="clock-flag-img" :src="`https://flagcdn.com/20x15/${c.cc}.png`" :srcset="`https://flagcdn.com/40x30/${c.cc}.png 2x`" width="20" height="15" :alt="c.city" loading="lazy" />
+        <img class="clock-flag-img" :src="`https://flagcdn.com/20x15/${c.cc}.png`" :srcset="`https://flagcdn.com/40x30/${c.cc}.png 2x`" width="20" height="15" :alt="c.city" loading="lazy" decoding="async" />
         <b>{{ c.city }}</b> {{ c.time }}
       </span>
     </div>

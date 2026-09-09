@@ -728,7 +728,7 @@ function unsubscribeBookings() {
 
 /* ---------- Grouping & filtering (day / week / month) ---------- */
 const viewMode = ref('day'); // 'day' | 'week' | 'month'
-const quickFilter = ref('all'); // 'all' | 'today' | 'week' | 'month'
+const quickFilter = ref('all'); // 'all' | 'today' | 'week' | 'month' | 'confirmed' | 'archive'
 
 function toDateOnly(key) {
   if (!key || key === '__nodate__') return null;
@@ -768,6 +768,7 @@ const filteredBookings = computed(() => {
   }
   const active = bookings.value.filter((b) => !b.completed);
   if (quickFilter.value === 'all') return active;
+  if (quickFilter.value === 'confirmed') return active.filter((b) => b.confirmed);
   const now = new Date();
   return active.filter((b) => {
     const d = toDateOnly(b.serviceDate);
@@ -1234,6 +1235,7 @@ async function installApp() {
           <button :class="{ active: quickFilter === 'today' }" @click="quickFilter = 'today'">Oggi</button>
           <button :class="{ active: quickFilter === 'week' }" @click="quickFilter = 'week'">Questa settimana</button>
           <button :class="{ active: quickFilter === 'month' }" @click="quickFilter = 'month'">Questo mese</button>
+          <button :class="{ active: quickFilter === 'confirmed' }" @click="quickFilter = 'confirmed'">Confermate</button>
           <button :class="{ active: quickFilter === 'archive' }" @click="quickFilter = 'archive'">Archivio</button>
         </div>
       </div>

@@ -850,6 +850,40 @@ function waHref(b) {
   return digits ? `https://wa.me/${digits}` : null;
 }
 
+/* ---------- Esportazione numeri confermati (invio manuale) ---------- */
+const showExportModal = ref(false);
+const exportCopied = ref(false);
+
+const confirmedPhoneNumbers = computed(() => {
+  const seen = new Set();
+  const list = [];
+  for (const b of bookings.value) {
+    if (!b.confirmed) continue;
+    const digits = cleanPhoneForWa(b);
+    if (!digits || seen.has(digits)) continue;
+    seen.add(digits);
+    list.push(`+${digits}`);
+  }
+  return list;
+});
+
+const confirmedPhoneNumbersText = computed(() => confirmedPhoneNumbers.value.join('\n'));
+
+function openExportModal() {
+  exportCopied.value = false;
+  showExportModal.value = true;
+}
+
+async function copyExportNumbers() {
+  try {
+    await navigator.clipboard.writeText(confirmedPhoneNumbersText.value);
+    exportCopied.value = true;
+    setTimeout(() => { exportCopied.value = false; }, 2000);
+  } catch (err) {
+    console.error('Copia negli appunti fallita:', err);
+  }
+}
+
 function toggleConfirm(b) {
   const willBeConfirmed = !b.confirmed;
   if (willBeConfirmed) {
@@ -1159,6 +1193,29 @@ async function installApp() {
         </ul>
       </div>
 
+      <div v-if="showExportModal" class="admin-modal-overlay" @click.self="showExportModal = false">
+        <div class="admin-modal">
+          <h2>Numeri clienti confermati</h2>
+          <p class="admin-modal-hint">
+            {{ confirmedPhoneNumbers.length }} numeri (senza duplicati), pronti per l'invio manuale su WhatsApp.
+          </p>
+          <textarea
+            readonly
+            rows="10"
+            class="admin-driver-input"
+            style="width: 100%; resize: vertical; font-family: monospace;"
+            :value="confirmedPhoneNumbersText"
+            @click="$event.target.select()"
+          ></textarea>
+          <div class="admin-modal-actions">
+            <button class="admin-logout" @click="showExportModal = false">Chiudi</button>
+            <button class="admin-install" @click="copyExportNumbers">
+              {{ exportCopied ? '✅ Copiato!' : 'Copia tutti' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="showIosHelp" class="admin-modal-overlay" @click.self="showIosHelp = false">
         <div class="admin-modal">
           <h2>Installa su iPhone/iPad</h2>
@@ -1236,6 +1293,7 @@ async function installApp() {
           <button :class="{ active: quickFilter === 'week' }" @click="quickFilter = 'week'">Questa settimana</button>
           <button :class="{ active: quickFilter === 'month' }" @click="quickFilter = 'month'">Questo mese</button>
           <button :class="{ active: quickFilter === 'confirmed' }" @click="quickFilter = 'confirmed'">Confermate</button>
+          <button type="button" class="admin-toggle" @click="openExportModal">📋 Esporta numeri</button>
           <button :class="{ active: quickFilter === 'archive' }" @click="quickFilter = 'archive'">Archivio</button>
         </div>
       </div>

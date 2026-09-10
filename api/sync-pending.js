@@ -1,3 +1,4 @@
+
 // /api/sync-pending — Vercel Serverless Function (Node.js, ESM).
 // Chiamata da BookingForm.vue subito dopo che un visitatore (non autenticato)
 // invia una prenotazione. Usa Firebase Admin SDK per scrivere direttamente
@@ -108,7 +109,7 @@ export default async function handler(req, res) {
   }
 
   // --- Costruzione dati fleet SOLO da booking (letto da siteDb) ---
-  const { name, country, phone, service, serviceDate, hotel, flight, people, bags, details } = booking;
+  const { name, country, phone, service, serviceDate, dataOra, hotel, flight, people, bags, details } = booking;
 
   const noteParts = [`Da sito agenzia · ${service || ''}`];
   if (flight) noteParts.push(`Volo: ${flight}`);
@@ -124,7 +125,13 @@ export default async function handler(req, res) {
       const fleetDoc = await fleetDb.collection('prenotazioni').add({
         cliente: name || '',
         telefono: `${country || ''} ${phone || ''}`.trim(),
-        dataOra: serviceDate ? `${serviceDate}T00:00:00` : new Date().toISOString(),
+        // usa l'orario di ritiro completo salvato da BookingForm.vue
+        // (l'input datetime-local restituisce "YYYY-MM-DDTHH:mm", senza
+        // secondi — li aggiungiamo se mancanti); fallback a solo data
+        // (mezzanotte) o a "adesso", solo se dataOra non è mai stato impostato.
+        dataOra: dataOra
+          ? (dataOra.length === 16 ? `${dataOra}:00` : dataOra)
+          : (serviceDate ? `${serviceDate}T00:00:00` : new Date().toISOString()),
         zona: 'Sito agenzia',
         destinazione: hotel || service || '',
         veicolo: '',

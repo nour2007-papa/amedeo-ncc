@@ -361,10 +361,19 @@ export class SyncOrchestrator {
     return {
       cliente: booking.name || '',
       telefono: `${booking.country || ''} ${booking.phone || ''}`.trim(),
-      dataOra: booking.serviceDate ? `${booking.serviceDate}T00:00:00` : new Date().toISOString(),
       zona: booking.zona || 'Sito agenzia',
       destinazione: booking.hotel || booking.service || '',
       veicolo: '',
+      // BUG FIX (12 set 2026): prima si ricostruiva qui con
+      // `${booking.serviceDate}T00:00:00`, ma booking.serviceDate è già
+      // "YYYY-MM-DD HH:mm" (con spazio, non T) — il risultato era una
+      // stringa data non valida E comunque sempre a mezzanotte, il che
+      // rompeva silenziosamente il blocco "5 minuti prima" e il countdown
+      // nel Driver Portal (isStartAllowed/minutesUntilStart trattavano la
+      // corsa come sempre già iniziabile). Il vero orario esiste già in
+      // booking.dataOra (salvato da BookingForm.vue in formato ISO
+      // datetime-local) — va usato direttamente.
+      dataOra: booking.dataOra || (booking.serviceDate ? booking.serviceDate.replace(' ', 'T') : new Date().toISOString()),
       autista: options.driverName || '',
       autistaUid: options.driverUid || null,
       stato,

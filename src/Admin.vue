@@ -340,7 +340,13 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
     const fleetDoc = await addDoc(collection(fleetDb, 'prenotazioni'), {
       cliente: b.name || '',
       telefono: `${b.country || ''} ${b.phone || ''}`.trim(),
-      dataOra: b.serviceDate ? `${b.serviceDate}T00:00:00` : new Date().toISOString(),
+      // BUG FIX (12 set 2026): prima si ricostruiva con
+      // `${b.serviceDate}T00:00:00` — b.serviceDate è già "YYYY-MM-DD HH:mm"
+      // (spazio, non T), quindi il risultato era una data non valida E
+      // sempre a mezzanotte, rompendo il blocco "5 minuti prima" e il
+      // countdown nel Driver Portal. Il vero orario è già in b.dataOra
+      // (ISO, salvato da BookingForm.vue).
+      dataOra: b.dataOra || (b.serviceDate ? b.serviceDate.replace(' ', 'T') : new Date().toISOString()),
       zona: b.zona || 'Sito agenzia',
       destinazione: b.hotel || b.service || '',
       veicolo: '',

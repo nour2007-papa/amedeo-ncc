@@ -184,7 +184,7 @@ export class SyncOrchestrator {
     
     switch (syncAction.action) {
       case 'create':
-        return await this.createFleetMirror(booking);
+        return await this.createFleetMirror(booking, options);
       case 'update':
         return await this.updateFleetMirror(booking, syncAction.updates);
       case 'delete':
@@ -242,6 +242,10 @@ export class SyncOrchestrator {
       
       if (options.driverName) {
         updates.autista = options.driverName;
+        // BUG FIX (12 set 2026): mancava autistaUid — senza questo campo
+        // ncc-fleet non collega davvero l'autista alla corsa (DriverPortal,
+        // filtri, report), va riassegnato a mano ogni volta.
+        updates.autistaUid = options.driverUid || null;
       }
       
       return { action: 'update', updates };
@@ -253,8 +257,8 @@ export class SyncOrchestrator {
   /**
    * إنشاء mirror في ncc-fleet
    */
-  async createFleetMirror(booking) {
-    const fleetData = this.buildFleetData(booking);
+  async createFleetMirror(booking, options = {}) {
+    const fleetData = this.buildFleetData(booking, options);
     const fleetDoc = await addDoc(collection(this.fleetDb, 'prenotazioni'), fleetData);
     
     // تحديث booking بـ fleetDocId
@@ -265,7 +269,7 @@ export class SyncOrchestrator {
 
     // إنشاء trip إذا كان مؤكداً مع سائق
     if (booking.confirmed && fleetData.autista) {
-      await this.createFleetTrip(booking, fleetDoc.id, fleetData);
+      await this.createFleetTrip(booking, fleetDoc.id, fleetData, options);
     }
 
     return { fleetDocId: fleetDoc.id, created: true };
@@ -321,12 +325,12 @@ export class SyncOrchestrator {
   /**
    * إنشاء trip في ncc-fleet
    */
-  async createFleetTrip(booking, fleetDocId, fleetData) {
+  async createFleetTrip(booking, fleetDocId, fleetData, options = {}) {
     if (booking.fleetTripId) {
       return { skipped: true, reason: 'Trip already exists' };
     }
 
-    const tripData = this.buildTripData(booking, fleetData);
+    const tripData = this.buildTripData(booking, fleetData, options);
     const tripDoc = await addDoc(collection(this.fleetDb, 'trips'), tripData);
     
     await updateDoc(doc(this.siteDb, 'bookings', booking.id), {
@@ -339,12 +343,20 @@ export class SyncOrchestrator {
   /**
    * بناء بيانات Fleet
    */
-  buildFleetData(booking) {
+  buildFleetData(booking, options = {}) {
     const noteParts = [`Da sito agenzia · ${booking.service || ''}`];
     if (booking.flight) noteParts.push(`Volo: ${booking.flight}`);
     if (booking.people) noteParts.push(`Persone: ${booking.people}`);
     if (booking.bags) noteParts.push(`Valigie: ${booking.bags}`);
     if (booking.details) noteParts.push(booking.details);
+
+    // BUG FIX (12 set 2026): prima autista/stato erano fissi ('', pending)
+    // qui — se la prenotazione veniva confermata CON autista già scelto
+    // al primo salvataggio (fleetDocId ancora inesistente -> action:'create'),
+    // il nome del conducente e il suo autistaUid andavano persi del tutto.
+    const stato = !booking.confirmed
+      ? STATUS_MAPPER.toFleet.pending
+      : (options.driverName ? STATUS_MAPPER.toFleet.confirmed_with_driver : STATUS_MAPPER.toFleet.confirmed);
 
     return {
       cliente: booking.name || '',
@@ -353,8 +365,9 @@ export class SyncOrchestrator {
       zona: booking.zona || 'Sito agenzia',
       destinazione: booking.hotel || booking.service || '',
       veicolo: '',
-      autista: '',
-      stato: STATUS_MAPPER.toFleet.pending,
+      autista: options.driverName || '',
+      autistaUid: options.driverUid || null,
+      stato,
       note: noteParts.join(' | '),
       createdAt: new Date().toISOString(),
       reminderSent: false,
@@ -364,7 +377,7 @@ export class SyncOrchestrator {
   /**
    * بناء بيانات Trip
    */
-  buildTripData(booking, fleetData) {
+  buildTripData(booking, fleetData, options = {}) {
     const pickupTime = booking.dataOra && booking.dataOra.includes('T') 
       ? booking.dataOra.split('T')[1].slice(0, 5) 
       : '';
@@ -378,7 +391,7 @@ export class SyncOrchestrator {
     return {
       date: booking.serviceDate || new Date().toISOString().slice(0, 10),
       time: pickupTime,
-      carId: '', // سيتم تحديثه عند ربط السائق
+      carId: options.carId || '', // preso dal profilo dell'autista in employees
       route: `${booking.zona || 'Sito agenzia'} → ${booking.hotel || booking.service || ''}`,
       fare: 0,
       payment: '',

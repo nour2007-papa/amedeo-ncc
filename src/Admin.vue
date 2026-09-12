@@ -268,6 +268,14 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
     throw new Error(`Fleet auth non disponibile (stato: ${fleetAuthStatus.value}). Effettua il login su ncc-fleet.`);
   }
 
+  // Ricerca del driver unificata: usata sia dal ramo Enhanced Sync (sotto)
+  // sia dal ramo Legacy più in basso, invece di essere ripetuta due volte.
+  const matchedDriver = driverName
+    ? driversList.value.find(
+        (d) => d.name.trim().toLowerCase() === driverName.trim().toLowerCase()
+      )
+    : null;
+
   // Use enhanced sync orchestrator if available
   if (syncOrchestrator) {
     try {
@@ -275,6 +283,12 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
       const result = await syncOrchestrator.syncBooking(bookingId, {
         driverName,
         willBeConfirmed,
+        // BUG FIX (12 set 2026): senza questi due campi, syncOrchestrator
+        // scriveva "autista" ma MAI "autistaUid"/"carId" — il driver
+        // risultava assegnato solo per nome, andava rilegato a mano su
+        // ncc-fleet ogni volta.
+        driverUid: matchedDriver?.authUid || null,
+        carId: matchedDriver?.carId || '',
       });
 
       const duration = Date.now() - startTime;
@@ -317,14 +331,7 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
     return parts.join(' | ');
   };
 
-  // Ricerca del driver unificata: usata sia per il mirror in "prenotazioni"
-  // (autistaUid) sia per la corsa in "trips" (carId), invece di essere
-  // ripetuta due volte come in precedenza.
-  const matchedDriver = driverName
-    ? driversList.value.find(
-        (d) => d.name.trim().toLowerCase() === driverName.trim().toLowerCase()
-      )
-    : null;
+  // matchedDriver già calcolato sopra (riusato anche dal ramo Enhanced Sync).
 
   // Crea il documento gemello in "prenotazioni" e salva il suo id sulla
   // prenotazione originale (amedeo-ncc), così le volte successive si

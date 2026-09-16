@@ -43,8 +43,11 @@
   <meta property="og:locale" content="it_IT">
   <meta property="og:site_name" content="Grifone NCC">
 
-  <!-- LCP Optimization: Preload Hero Image with High Priority -->
-  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1589199928766-31ac1fa51e2c?fm=webp&q=80&w=800&auto=format&fit=crop" fetchpriority="high">
+  <!-- LCP Optimization: Preload Hero Image with High Priority — solo desktop.
+       Su mobile questa immagine ha display:none (vedi .hero-griffin in App.vue),
+       quindi precaricarla su schermi piccoli sprecava banda/priorità a scapito
+       del vero LCP mobile (il testo del titolo). -->
+  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1589199928766-31ac1fa51e2c?fm=webp&q=80&w=800&auto=format&fit=crop" fetchpriority="high" media="(min-width: 901px)">
 
   <!-- System Font Fallback to prevent layout shifts and blocking -->
   <style>

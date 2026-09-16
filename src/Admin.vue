@@ -1242,8 +1242,7 @@ async function installApp() {
           <textarea
             readonly
             rows="10"
-            class="admin-driver-input"
-            style="width: 100%; resize: vertical; font-family: monospace;"
+            class="admin-driver-input admin-export-textarea"
             :value="confirmedPhoneNumbersText"
             @click="$event.target.select()"
           ></textarea>

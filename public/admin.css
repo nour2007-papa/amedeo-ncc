@@ -94,6 +94,7 @@ html,body{background:var(--ink);}
   padding:12px 14px; font-family:'Work Sans',sans-serif; font-size:0.92rem;
 }
 .admin-driver-input:focus{outline:none; border-color:var(--brass);}
+.admin-export-textarea{width:100%; resize:vertical; font-family:monospace;}
 .admin-modal-error{color:#e08a8a; font-size:0.8rem;}
 .admin-lang-picker{display:flex; gap:8px;}
 .admin-lang-picker button{

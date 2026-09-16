@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue';
+import { SpeedInsights } from '@vercel/speed-insights/vue';
 import griffinLogoSmall from './assets/griffin-logo.webp';
 import grifoneHero from './assets/griffin-hero.webp';
 import { dict } from './i18n.js';
@@ -456,6 +457,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+<SpeedInsights />
 <noscript><div class="noscript-banner">Questo sito richiede JavaScript per funzionare correttamente. Abilita JavaScript nel tuo browser.</div></noscript>
 
 <header role="banner">

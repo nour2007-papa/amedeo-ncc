@@ -1,56 +1,65 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // استخدام متغيرات البيئة للبريد الإداري
-    // يجب تعيينه في Firebase Console: Firestore > Rules > Configuration
     function isAdmin() {
-      const adminEmail = get(/databases/$(database)/documents/config/settings).data.adminEmail;
       return request.auth != null
-        && request.auth.token.email == adminEmail;
+        && request.auth.token.email == 'nour2007papa@gmail.com';
     }
+
+    // حقل نصي اختياري: غير موجود، أو null، أو string بطول أقصى محدد.
+    function optStr(d, f, max) {
+      return !(f in d)
+        || d[f] == null
+        || (d[f] is string && d[f].size() <= max);
+    }
+
+    // حقل اختياري نص قصير أو رقم صغير (عدد الركاب / الحقائب).
+    function optStrOrNum(d, f, max) {
+      return !(f in d)
+        || d[f] == null
+        || (d[f] is string && d[f].size() <= max)
+        || (d[f] is number && d[f] >= 0 && d[f] <= 1000);
+    }
+
     match /bookings/{bookingId} {
       // الزائر يستطيع إنشاء طلب جديد فقط، ولا يستطيع القراءة أو التعديل أو الحذف.
-      // التعديل/الإلغاء اللاحق من العميل يمر حصرًا عبر /api/booking-edit
-      // (Firebase Admin SDK على السيرفر) — مش عبر هذه الـ rules مباشرة.
       allow create: if request.auth == null
         && request.resource.data.keys().hasOnly([
-          'name', 'titolo', 'country', 'phone', 'service', 'serviceDate',
+          'editToken', 'name', 'titolo', 'country', 'phone', 'service', 'serviceDate',
           'people', 'flight', 'hotel', 'bags', 'details', 'lang',
           'tipoServizio', 'lingua', 'dataOra', 'zona', 'destinazione',
-          'volo', 'passeggeri', 'bagagli', 'confirmed', 'createdAt',
-          'editToken'
+          'volo', 'passeggeri', 'bagagli', 'confirmed', 'createdAt'
         ])
         && request.resource.data.keys().hasAll([
           'name', 'phone', 'createdAt', 'confirmed', 'editToken'
         ])
+        && request.resource.data.editToken is string
+        && request.resource.data.editToken.size() == 32
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 100
         && request.resource.data.phone is string
         && request.resource.data.phone.size() > 0
         && request.resource.data.phone.size() <= 20
-        && request.resource.data.editToken is string
-        && request.resource.data.editToken.size() == 32
-        && (!('titolo' in request.resource.data)
-            || request.resource.data.titolo == null
-            || (request.resource.data.titolo is string
-                && request.resource.data.titolo.size() <= 20))
-        && (!('details' in request.resource.data)
-            || request.resource.data.details == null
-            || (request.resource.data.details is string
-                && request.resource.data.details.size() <= 500))
-        && (!('zona' in request.resource.data)
-            || request.resource.data.zona == null
-            || (request.resource.data.zona is string
-                && request.resource.data.zona.size() <= 120))
-        && (!('destinazione' in request.resource.data)
-            || request.resource.data.destinazione == null
-            || (request.resource.data.destinazione is string
-                && request.resource.data.destinazione.size() <= 120))
-        && (!('volo' in request.resource.data)
-            || request.resource.data.volo == null
-            || (request.resource.data.volo is string
-                && request.resource.data.volo.size() <= 20))
+        // حقول نصية اختيارية — كلها بحد أقصى للطول ونوع string
+        && optStr(request.resource.data, 'titolo', 20)
+        && optStr(request.resource.data, 'details', 500)
+        && optStr(request.resource.data, 'zona', 120)
+        && optStr(request.resource.data, 'destinazione', 120)
+        && optStr(request.resource.data, 'volo', 20)
+        && optStr(request.resource.data, 'flight', 20)
+        && optStr(request.resource.data, 'hotel', 120)
+        && optStr(request.resource.data, 'country', 10)
+        && optStr(request.resource.data, 'service', 60)
+        && optStr(request.resource.data, 'serviceDate', 40)
+        && optStr(request.resource.data, 'dataOra', 40)
+        && optStrOrNum(request.resource.data, 'people', 10)
+        && optStrOrNum(request.resource.data, 'passeggeri', 10)
+        && optStrOrNum(request.resource.data, 'bags', 10)
+        && optStrOrNum(request.resource.data, 'bagagli', 10)
+        && (!('lang' in request.resource.data)
+            || request.resource.data.lang == null
+            || request.resource.data.lang in ['ar', 'it', 'en', 'altro'])
         && request.resource.data.lingua in ['ar', 'it', 'en', 'altro']
         && request.resource.data.tipoServizio in [
           'aeroporto', 'business', 'milano', 'evento', 'intercity', 'altro'
@@ -61,16 +70,6 @@ service cloud.firestore {
     }
     match /{document=**} {
       allow read, write: if false;
-    }
-    
-    // Configuration collection for settings
-    // كانت "allow read: if true" — ده بيكشف adminEmail لأي حد يستعلم مباشرة
-    // على Firestore REST/SDK من غير ما يكون مسجل دخول. isAdmin() بيستخدم
-    // get() هنا وده بيشتغل دايمًا بغض النظر عن قاعدة القراءة بتاعة المستند
-    // نفسه (سلوك قياسي في Firestore Rules)، فمفيش داعي القراءة تبقى عامة.
-    match /config/{document=**} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
     }
   }
 }

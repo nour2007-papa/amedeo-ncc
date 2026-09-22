@@ -6,10 +6,6 @@ import { airports, airportSlugs } from './data/airports.js';
 // Chi non conosce questo link vede solo il sito pubblico normale.
 const isAdminRoute = window.location.hash.startsWith('#gestione-9f3k2x7q');
 
-// Pagina di modifica/annullamento prenotazione, aperta dal link segreto
-// inviato al cliente su WhatsApp alla conferma: #modifica-{bookingId}-{token}
-const isEditRoute = window.location.hash.startsWith('#modifica-');
-
 // صفحات المطارات — /aeroporti/malpensa, /aeroporti/linate, /aeroporti/bergamo
 // (بديل خفيف لـ vue-router، بنفس أسلوب الـ hash routing الموجود أصلاً)
 const airportMatch = window.location.pathname.match(/^\/aeroporti\/([a-z-]+)\/?$/);
@@ -19,13 +15,6 @@ const airportSlug = airportMatch && airportSlugs.includes(airportMatch[1]) ? air
 // pagina di gestione: i visitatori del sito pubblico non vedono manifest
 // né service worker, e non viene mai proposto di installare il sito intero.
 if (isAdminRoute) {
-  // Carichiamo lo stile della pagina di gestione come file statico separato
-  // (public/admin.css), NON tramite l'import dinamico di Admin.vue.
-  // Prima capitava che, in certe condizioni (cache del browser, estensioni,
-  // ordine di caricamento dei chunk), lo stile del sito pubblico (App.vue)
-  // finiva applicato anche qui, rompendo il layout della pagina di gestione.
-  // Un <link> statico caricato subito, indipendente dal sistema di chunk
-  // di Vite, elimina questo rischio.
   const adminCss = document.createElement('link');
   adminCss.rel = 'stylesheet';
   adminCss.href = '/admin.css';
@@ -41,7 +30,6 @@ if (isAdminRoute) {
   themeColor.content = '#0C0F12';
   document.head.appendChild(themeColor);
 
-  // Supporto "Aggiungi a Home" su iOS (Safari non legge il manifest)
   const appleCapable = document.createElement('meta');
   appleCapable.name = 'apple-mobile-web-app-capable';
   appleCapable.content = 'yes';
@@ -71,20 +59,17 @@ if (isAdminRoute) {
   }
 }
 
-// Import dinamico: il sito pubblico, il pannello di gestione, la pagina di
-// modifica e le pagine aeroporto finiscono ognuno nel proprio file JS,
-// così un visitatore normale non scarica mai codice che non gli serve.
+// Import dinamico: il sito pubblico, il pannello di gestione, e le pagine
+// aeroporto finiscono ognuno nel proprio file JS, così un visitatore
+// normale non scarica mai codice che non gli serve.
 const loadComponent = isAdminRoute
   ? import('./Admin.vue')
-  : isEditRoute
-  ? import('./Modifica.vue')
   : airportSlug
   ? import('./AeroportoPage.vue')
   : import('./App.vue');
 
 loadComponent.then((mod) => {
   if (airportSlug) {
-    // AeroportoPage.vue بياخد data كـ prop بدل ما يقرأها بنفسه
     createApp({
       render: () => h(mod.default, { slug: airportSlug, data: airports[airportSlug] }),
     }).mount('#app');

@@ -28,9 +28,14 @@ export function validateDate(date) {
   return inputDate >= now;
 }
 
+// FIX (T-03): i codici IATA delle compagnie aeree sono 2 caratteri
+// alfanumerici (lettera+lettera O lettera+cifra O cifra+lettera — es.
+// "U2" easyJet, "W6" Wizz Air, "9W" Jet Airways), seguiti dal numero di
+// volo (1-4 cifre). La regex precedente accettava solo lettera+lettera,
+// rifiutando voli reali come U21234 o W62345.
 export function validateFlightNumber(flight) {
   if (!flight) return true; // Optional field
-  const flightRegex = /^[A-Z]{2}\d{3,4}$/i;
+  const flightRegex = /^[A-Z0-9]{2}\d{1,4}$/i;
   return flightRegex.test(flight.trim());
 }
 

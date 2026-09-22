@@ -5,7 +5,7 @@ import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
-  getFirestore, collection, query, orderBy, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs, getDoc,
+  getFirestore, collection, query, orderBy, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, setDoc, getDocs, getDoc, runTransaction,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import { fleetDb, fleetAuth } from './firebase-fleet.js';
@@ -336,37 +336,71 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
   // Crea il documento gemello in "prenotazioni" e salva il suo id sulla
   // prenotazione originale (amedeo-ncc), così le volte successive si
   // aggiorna invece di duplicare.
+  // FIX (S-03, 22 set 2026): stesso schema anti-duplicazione usato in
+  // sync-orchestrator.js — l'ID del fleetDoc viene generato lato client
+  // (nessuna scrittura) e "prenotato" con una transazione su db (siteDb).
+  // Solo una chiamata concorrente vince la transazione; le altre trovano
+  // fleetDocId già valorizzato e riusano quello invece di duplicare la
+  // prenotazione su ncc-fleet. Necessario perché questo fallback legacy
+  // può girare in parallelo all'Enhanced Sync (vedi try/catch sopra) o
+  // essere invocato due volte con un doppio click sul pulsante conferma.
   const createFleetMirror = async () => {
-    const fleetDoc = await addDoc(collection(fleetDb, 'prenotazioni'), {
-      cliente: b.name || '',
-      telefono: `${b.country || ''} ${b.phone || ''}`.trim(),
-      // BUG FIX (12 set 2026): prima si ricostruiva con
-      // `${b.serviceDate}T00:00:00` — b.serviceDate è già "YYYY-MM-DD HH:mm"
-      // (spazio, non T), quindi il risultato era una data non valida E
-      // sempre a mezzanotte, rompendo il blocco "5 minuti prima" e il
-      // countdown nel Driver Portal. Il vero orario è già in b.dataOra
-      // (ISO, salvato da BookingForm.vue).
-      dataOra: b.dataOra || (b.serviceDate ? b.serviceDate.replace(' ', 'T') : new Date().toISOString()),
-      zona: b.zona || 'Sito agenzia',
-      destinazione: b.hotel || b.service || '',
-      veicolo: '',
-      // Campo "autista" popolato con il nome esatto scelto nel modale
-      // (idealmente preso dalla lista employees di ncc-fleet), così la
-      // prenotazione risulta collegata al conducente reale e non solo
-      // menzionata nelle note.
-      autista: driverName || '',
-      // autistaUid è il campo che ncc-fleet usa realmente per il collegamento
-      // (query DriverPortal, filtri PrenotazioniTable, DriverMonthlyReport).
-      // Senza questo resta null e va assegnato a mano su ncc-fleet ogni volta.
-      autistaUid: matchedDriver?.authUid || null,
-      // "autista_assegnato" è lo stato dedicato in ncc-fleet quando un
-      // conducente è già assegnato alla corsa (vedi bookingConstants.js).
-      stato: driverName ? 'autista_assegnato' : 'confermato',
-      note: buildNoteParts(),
-      createdAt: new Date().toISOString(),
-      reminderSent: false,
+    const fleetDocRef = doc(collection(fleetDb, 'prenotazioni'));
+
+    const reservation = await runTransaction(db, async (tx) => {
+      const freshSnap = await tx.get(bookingRef);
+      if (!freshSnap.exists()) {
+        throw new Error(`Booking ${bookingId} non trovato (transazione)`);
+      }
+      const freshData = freshSnap.data();
+      if (freshData.fleetDocId) {
+        return { fleetDocId: freshData.fleetDocId, wonRace: false };
+      }
+      tx.update(bookingRef, { fleetDocId: fleetDocRef.id });
+      return { fleetDocId: fleetDocRef.id, wonRace: true };
     });
-    await updateDoc(bookingRef, { fleetDocId: fleetDoc.id });
+
+    if (!reservation.wonRace) {
+      // Un'altra chiamata (Enhanced Sync o un secondo click) ha già vinto.
+      return;
+    }
+
+    try {
+      await setDoc(fleetDocRef, {
+        cliente: b.name || '',
+        telefono: `${b.country || ''} ${b.phone || ''}`.trim(),
+        // BUG FIX (12 set 2026): prima si ricostruiva con
+        // `${b.serviceDate}T00:00:00` — b.serviceDate è già "YYYY-MM-DD HH:mm"
+        // (spazio, non T), quindi il risultato era una data non valida E
+        // sempre a mezzanotte, rompendo il blocco "5 minuti prima" e il
+        // countdown nel Driver Portal. Il vero orario è già in b.dataOra
+        // (ISO, salvato da BookingForm.vue).
+        dataOra: b.dataOra || (b.serviceDate ? b.serviceDate.replace(' ', 'T') : new Date().toISOString()),
+        zona: b.zona || 'Sito agenzia',
+        destinazione: b.hotel || b.service || '',
+        veicolo: '',
+        // Campo "autista" popolato con il nome esatto scelto nel modale
+        // (idealmente preso dalla lista employees di ncc-fleet), così la
+        // prenotazione risulta collegata al conducente reale e non solo
+        // menzionata nelle note.
+        autista: driverName || '',
+        // autistaUid è il campo che ncc-fleet usa realmente per il collegamento
+        // (query DriverPortal, filtri PrenotazioniTable, DriverMonthlyReport).
+        // Senza questo resta null e va assegnato a mano su ncc-fleet ogni volta.
+        autistaUid: matchedDriver?.authUid || null,
+        // "autista_assegnato" è lo stato dedicato in ncc-fleet quando un
+        // conducente è già assegnato alla corsa (vedi bookingConstants.js).
+        stato: driverName ? 'autista_assegnato' : 'confermato',
+        note: buildNoteParts(),
+        createdAt: new Date().toISOString(),
+        reminderSent: false,
+      });
+    } catch (error) {
+      // Rollback best-effort: evita che bookingRef resti con un fleetDocId
+      // "fantasma" che punta a un documento mai scritto su ncc-fleet.
+      await updateDoc(bookingRef, { fleetDocId: null }).catch(() => {});
+      throw error;
+    }
   };
 
   if (willBeConfirmed && !b.fleetDocId) {

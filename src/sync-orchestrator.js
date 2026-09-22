@@ -5,7 +5,7 @@
 // - Conflict Resolver: محلل التعارضات
 // - Error Handler: معالج الأخطاء المتقدم
 
-import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, setDoc, collection, runTransaction } from 'firebase/firestore';
 import { QueryOptimizer, PerformanceMetrics, debounce } from './performance-optimizer.js';
 import { fleetAuth } from './firebase-fleet.js';
 
@@ -259,20 +259,57 @@ export class SyncOrchestrator {
    */
   async createFleetMirror(booking, options = {}) {
     const fleetData = this.buildFleetData(booking, options);
-    const fleetDoc = await addDoc(collection(this.fleetDb, 'prenotazioni'), fleetData);
-    
-    // تحديث booking بـ fleetDocId
-    await updateDoc(doc(this.siteDb, 'bookings', booking.id), {
-      fleetDocId: fleetDoc.id,
-      syncedAt: new Date().toISOString(),
+    const bookingRef = doc(this.siteDb, 'bookings', booking.id);
+
+    // FIX (S-03, 22 set 2026): siteDb e fleetDb sono due progetti Firestore
+    // separati — non esiste una transazione atomica che copra entrambi.
+    // La race condition reale era però tutta interna a siteDb: due
+    // chiamate concorrenti (doppio click sul pulsante conferma, due admin,
+    // o l'Enhanced Sync + il fallback legacy) leggevano ENTRAMBE
+    // booking.fleetDocId assente prima che la prima scrivesse, quindi
+    // ENTRAMBE creavano un documento gemello -> prenotazione duplicata su
+    // ncc-fleet. Si genera l'ID del fleetDoc lato client (nessuna
+    // scrittura) e lo si "prenota" con una transazione su siteDb: solo UNA
+    // delle chiamate concorrenti può vincerla, le altre vedono
+    // fleetDocId già valorizzato e riusano quello invece di duplicare.
+    const fleetDocRef = doc(collection(this.fleetDb, 'prenotazioni'));
+
+    const reservation = await runTransaction(this.siteDb, async (tx) => {
+      const freshSnap = await tx.get(bookingRef);
+      if (!freshSnap.exists()) {
+        throw new Error(`Booking ${booking.id} not found (transaction)`);
+      }
+      const freshData = freshSnap.data();
+      if (freshData.fleetDocId) {
+        return { fleetDocId: freshData.fleetDocId, wonRace: false };
+      }
+      tx.update(bookingRef, {
+        fleetDocId: fleetDocRef.id,
+        syncedAt: new Date().toISOString(),
+      });
+      return { fleetDocId: fleetDocRef.id, wonRace: true };
     });
+
+    if (!reservation.wonRace) {
+      // Un'altra chiamata concorrente ha già creato/sta creando il mirror.
+      return { fleetDocId: reservation.fleetDocId, created: false, deduped: true };
+    }
+
+    try {
+      await setDoc(fleetDocRef, fleetData);
+    } catch (error) {
+      // Rollback best-effort: senza questo, bookingRef resta con un
+      // fleetDocId "fantasma" che punta a un documento mai scritto.
+      await updateDoc(bookingRef, { fleetDocId: null }).catch(() => {});
+      throw error;
+    }
 
     // إنشاء trip إذا كان مؤكداً مع سائق
     if (booking.confirmed && fleetData.autista) {
-      await this.createFleetTrip(booking, fleetDoc.id, fleetData, options);
+      await this.createFleetTrip(booking, fleetDocRef.id, fleetData, options);
     }
 
-    return { fleetDocId: fleetDoc.id, created: true };
+    return { fleetDocId: fleetDocRef.id, created: true };
   }
 
   /**

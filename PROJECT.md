@@ -464,3 +464,22 @@ bash safe-export.sh /path/to/vue-project-v2
 
 
 
+
+---
+
+## 11. جلسة 23 سبتمبر 2026 — مراجعة أمنية/تقنية على vue-project-v2-safe-20260923-1258.zip
+
+**تم تنفيذه:**
+1. حذف `api/booking-edit.js` (endpoint غير مستخدم بعد إلغاء ميزة تعديل الحجز الذاتي) + إزالة `generateEditToken()`/`editToken` الميت من `BookingForm.vue`
+2. توحيد الدومين في SEO: `index.html`، `public/sitemap.xml`، `src/AeroportoPage.vue` — إزالة تعارض www/بدون www في canonical/hreflang/sitemap/og:url
+3. **إصلاح critical regression:** `firestore.rules` كانت لسه بتطلب حقل `editToken` إجباري في `allow create` بعد ما اتشال من الكود — كان هيمنع أي حجز جديد. تم إصلاحها وتم نشرها يدويًا عبر Firebase Console (تأكيد من أميديو: الحجز شغال تمام، مفيش أخطاء)
+4. `Admin.vue`: تحويل `deleteBooking()` من hard-delete (`deleteDoc`) إلى soft-delete (`deleted: true` + `deletedAt`)، مع استبعاد المحذوفة من الاستعلام الرئيسي
+5. تفعيل Trusted Types في CSP (`vercel.json`): إضافة `trusted-types default; require-trusted-types-for 'script';` + policy passthrough في `src/main.js` (آمن لأن v-html الوحيد بيعرض نصوص i18n ثابتة، مش مدخلات مستخدم)
+6. إزالة `'unsafe-inline'` من `style-src` في CSP — تأكدنا إن مفيش `style="..."` ثابت ولا `:style` بصيغة string في المشروع، فالإزالة آمنة
+
+**باقي من القائمة (لسه معلّق):**
+- MFA على Admin panel
+- تفعيل Enforce على Firebase App Check (بعد فترة Monitor mode) — إجراء على Firebase Console مش كود
+- توثيق/تفعيل Point-In-Time Recovery (PITR) backup على Firestore
+
+**ملاحظة تقنية:** أُضيف `firebase.json` + `.firebaserc` لأول مرة في الريبو ده (كانا غير موجودين، سببوا فشل أول محاولة `firebase deploy --only firestore:rules`).

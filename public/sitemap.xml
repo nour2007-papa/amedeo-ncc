@@ -2,19 +2,19 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <!-- Homepage with multilingual versions -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/</loc>
+    <loc>https://amedeo-ncc.vercel.app/</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <xhtml:link rel="alternate" hreflang="it" href="https://www.amedeo-ncc.vercel.app/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://www.amedeo-ncc.vercel.app/"/>
-    <xhtml:link rel="alternate" hreflang="ar" href="https://www.amedeo-ncc.vercel.app/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.amedeo-ncc.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://amedeo-ncc.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://amedeo-ncc.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://amedeo-ncc.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://amedeo-ncc.vercel.app/"/>
   </url>
   
   <!-- Services Section -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/#servizi</loc>
+    <loc>https://amedeo-ncc.vercel.app/#servizi</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -22,7 +22,7 @@
   
   <!-- Fleet Section -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/#flotta</loc>
+    <loc>https://amedeo-ncc.vercel.app/#flotta</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -30,7 +30,7 @@
   
   <!-- Video Section -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/#video</loc>
+    <loc>https://amedeo-ncc.vercel.app/#video</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -38,7 +38,7 @@
   
   <!-- Trips Section -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/#viaggi</loc>
+    <loc>https://amedeo-ncc.vercel.app/#viaggi</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -46,7 +46,7 @@
   
   <!-- Contact Section -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/#contatti</loc>
+    <loc>https://amedeo-ncc.vercel.app/#contatti</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
@@ -54,21 +54,21 @@
   
   <!-- Airport Transfer Services (High-value pages) -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/transfer-malpensa</loc>
+    <loc>https://amedeo-ncc.vercel.app/transfer-malpensa</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/transfer-linate</loc>
+    <loc>https://amedeo-ncc.vercel.app/transfer-linate</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/transfer-orio-al-serio</loc>
+    <loc>https://amedeo-ncc.vercel.app/transfer-orio-al-serio</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
@@ -76,7 +76,7 @@
   
   <!-- Business Services -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/autista-business-milano</loc>
+    <loc>https://amedeo-ncc.vercel.app/autista-business-milano</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -84,7 +84,7 @@
   
   <!-- Tour Services -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/ncc-tour-italia</loc>
+    <loc>https://amedeo-ncc.vercel.app/ncc-tour-italia</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -92,7 +92,7 @@
   
   <!-- Wedding/Event Services -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/ncc-matrimoni-eventi</loc>
+    <loc>https://amedeo-ncc.vercel.app/ncc-matrimoni-eventi</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -100,7 +100,7 @@
   
   <!-- Intercity Services -->
   <url>
-    <loc>https://www.amedeo-ncc.vercel.app/transfer-intercity</loc>
+    <loc>https://amedeo-ncc.vercel.app/transfer-intercity</loc>
     <lastmod>2026-08-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

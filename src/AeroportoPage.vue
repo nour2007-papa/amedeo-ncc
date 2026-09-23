@@ -38,7 +38,7 @@ function setMetaTag(selector, attr, value) {
 function updateSeo() {
   const title = `${t.value.title} | Transfer NCC Milano | Grifone NCC`;
   const desc = t.value.sub;
-  const url = `https://www.amedeo-ncc.vercel.app/aeroporti/${props.slug}`;
+  const url = `https://amedeo-ncc.vercel.app/aeroporti/${props.slug}`;
   document.title = title;
   setMetaTag('meta[name="description"]', 'content', desc);
   setMetaTag('link[rel="canonical"]', 'href', url);

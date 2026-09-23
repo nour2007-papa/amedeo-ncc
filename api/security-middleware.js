@@ -17,7 +17,7 @@ const RATE_LIMIT_WINDOW_SECONDS = Math.floor(RATE_LIMIT_WINDOW_MS / 1000);
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const REDIS_ENABLED = Boolean(UPSTASH_URL && UPSTASH_TOKEN);
+export const REDIS_ENABLED = Boolean(UPSTASH_URL && UPSTASH_TOKEN);
 
 if (!REDIS_ENABLED) {
   console.warn(
@@ -33,7 +33,7 @@ const rateLimitStore = new Map();
  * تنفيذ أمر واحد على Upstash عبر REST API (بدون أي مكتبة خارجية).
  * راجع: https://upstash.com/docs/redis/features/restapi
  */
-async function upstashCommand(command) {
+export async function upstashCommand(command) {
   const res = await fetch(UPSTASH_URL, {
     method: 'POST',
     headers: {

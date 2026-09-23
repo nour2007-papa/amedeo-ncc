@@ -9,7 +9,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import crypto from 'crypto';
-import { applySecurityMiddleware } from './security-middleware.js';
+import { applySecurityMiddleware, upstashCommand, REDIS_ENABLED } from './security-middleware.js';
 
 function getAdminApp(name, envVar) {
   const existing = getApps().find((a) => a.name === name);
@@ -21,6 +21,18 @@ function getAdminApp(name, envVar) {
 }
 
 const WEBHOOK_SECRET = process.env.SYNC_WEBHOOK_SECRET;
+// FIX (S-06, 23 set 2026): la firma HMAC da sola prova solo la provenienza
+// della richiesta, non la sua "freschezza" — un attaccante che intercetta
+// UNA richiesta valida può reinviarla all'infinito, e verrebbe accettata
+// ogni volta (es. replay di "booking.deleted" per annullare di nuovo una
+// prenotazione già ripristinata a mano). Due livelli di difesa aggiunti:
+// 1) la firma ora copre anche un timestamp fornito dal chiamante, con
+//    una finestra di tolleranza oltre la quale la richiesta è rifiutata;
+// 2) entro quella finestra, la firma stessa (unica per timestamp+body)
+//    viene registrata su Redis con SET NX — un secondo invio della STESSA
+//    firma viene rifiutato anche se ancora dentro la finestra di tempo.
+const WEBHOOK_TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000; // 5 minuti
+const REPLAY_NONCE_TTL_SECONDS = 10 * 60; // margine oltre la tolleranza sopra
 
 /**
  * التحقق من صحة Webhook signature باستخدام HMAC-SHA256
@@ -32,35 +44,70 @@ function verifyWebhookSignature(req) {
   // يوقّع طلبات صحيحة ويستخدم صلاحيات Admin SDK الكاملة).
   if (!WEBHOOK_SECRET) {
     console.error('[sync-webhook] SYNC_WEBHOOK_SECRET non configurato — richiesta rifiutata');
-    return false;
+    return { valid: false };
   }
 
   const signature = req.headers['x-webhook-signature'];
+  const timestampHeader = req.headers['x-webhook-timestamp'];
   if (!signature) {
     console.warn('[sync-webhook] Missing webhook signature header');
-    return false;
+    return { valid: false };
   }
-  
+  if (!timestampHeader) {
+    console.warn('[sync-webhook] Missing webhook timestamp header');
+    return { valid: false };
+  }
+
+  const timestamp = Number(timestampHeader);
+  if (!Number.isFinite(timestamp)) {
+    console.warn('[sync-webhook] Invalid webhook timestamp header');
+    return { valid: false };
+  }
+  const skewMs = Math.abs(Date.now() - timestamp);
+  if (skewMs > WEBHOOK_TIMESTAMP_TOLERANCE_MS) {
+    console.warn(`[sync-webhook] Webhook timestamp fuori tolleranza (skew ${skewMs}ms) — probabile replay`);
+    return { valid: false };
+  }
+
   try {
-    const payload = JSON.stringify(req.body);
+    // La firma copre timestamp + body: un vecchio replay firmato su un
+    // body identico ma senza il timestamp aggiornato non passerebbe più.
+    const payload = `${timestampHeader}.${JSON.stringify(req.body)}`;
     const expectedSignature = crypto
       .createHmac('sha256', WEBHOOK_SECRET)
       .update(payload)
       .digest('hex');
-    
+
     const sigBuf = Buffer.from(signature);
     const expBuf = Buffer.from(expectedSignature);
     // timingSafeEqual يرمي خطأ لو الطولين مختلفين، فبنتحقق الأول
     const isValid = sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
-    
+
     if (!isValid) {
       console.warn('[sync-webhook] Invalid webhook signature');
     }
-    
-    return isValid;
+
+    return { valid: isValid, signature };
   } catch (error) {
     console.error('[sync-webhook] Signature verification error:', error);
-    return false;
+    return { valid: false };
+  }
+}
+
+/**
+ * منع الـ replay داخل نافذة الوقت المسموحة: أول استخدام لتوقيع معيّن بس هو
+ * اللي بيعدي. لو Redis مش متاح، بنسمح (best-effort — نفس فلسفة الـ rate
+ * limiting fallback في security-middleware.js) بدل ما نوقف الخدمة كلها.
+ */
+async function checkAndMarkReplay(signature) {
+  if (!REDIS_ENABLED) return true;
+  try {
+    const key = `webhook-nonce:${signature}`;
+    const result = await upstashCommand(['SET', key, '1', 'NX', 'EX', String(REPLAY_NONCE_TTL_SECONDS)]);
+    return result === 'OK'; // null يعني الـ key موجود بالفعل = replay
+  } catch (error) {
+    console.error('[sync-webhook] فشل التحقق من الـ replay عبر Redis (السماح كـ best-effort):', error.message);
+    return true;
   }
 }
 
@@ -279,8 +326,14 @@ export default async function handler(req, res) {
   }
 
   // التحقق من Webhook signature (إلزامي في الإنتاج)
-  if (!verifyWebhookSignature(req)) {
+  const sigCheck = verifyWebhookSignature(req);
+  if (!sigCheck.valid) {
     res.status(401).json({ error: 'invalid_signature' });
+    return;
+  }
+  if (!(await checkAndMarkReplay(sigCheck.signature))) {
+    console.warn('[sync-webhook] Replay rilevato — richiesta con firma già usata');
+    res.status(409).json({ error: 'replay_detected' });
     return;
   }
 

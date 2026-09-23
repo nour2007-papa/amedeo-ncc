@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 
 // Firebase configuration — read ONLY from environment variables.
 // No real keys are hardcoded here; without a .env file this app
@@ -40,7 +40,7 @@ if (import.meta.env.DEV) {
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 if (recaptchaSiteKey) {
   initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+    provider: new ReCaptchaEnterpriseProvider(recaptchaSiteKey),
     isTokenAutoRefreshEnabled: true,
   });
 } else {

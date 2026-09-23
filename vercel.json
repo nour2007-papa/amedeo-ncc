@@ -27,7 +27,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://amedeo-ncc.firebaseapp.com https://amedeo-fleet.firebaseapp.com https://www.google.com https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://amedeo-ncc.firebaseapp.com https://amedeo-fleet.firebaseapp.com wss:; worker-src 'self'; manifest-src 'self'; frame-src 'self' https://www.google.com https://www.openstreetmap.org; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://amedeo-ncc.firebaseapp.com https://amedeo-fleet.firebaseapp.com https://www.google.com https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://amedeo-ncc.firebaseapp.com https://amedeo-fleet.firebaseapp.com https://www.google.com https://www.gstatic.com wss:; worker-src 'self'; manifest-src 'self'; frame-src 'self' https://www.google.com https://www.openstreetmap.org; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
         },
         {
           "key": "X-Frame-Options",

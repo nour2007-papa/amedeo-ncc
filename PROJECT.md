@@ -483,3 +483,5 @@ bash safe-export.sh /path/to/vue-project-v2
 - توثيق/تفعيل Point-In-Time Recovery (PITR) backup على Firestore
 
 **ملاحظة تقنية:** أُضيف `firebase.json` + `.firebaserc` لأول مرة في الريبو ده (كانا غير موجودين، سببوا فشل أول محاولة `firebase deploy --only firestore:rules`).
+
+**⚠️ تحديث:** بند 5 (Trusted Types) و6 (إزالة style-src unsafe-inline) اتعملهم **rollback** بعد الاختبار في production — سببوا كسر كامل لـ Firebase init (Vue بيحاول يعمل policy اسمها 'vue' داخليًا، وFirebase SDK محتاج TrustedScriptURL policy مش موجودة عندنا) + inline styles من مكتبات جوه الـ bundle مش من كودنا. الـ CSP رجعت لحالتها قبل الجلسة (`unsafe-inline` في style-src موجودة، مفيش trusted-types). البندين دول يحتاجوا بحث أعمق قبل أي محاولة تانية — **مؤجلين**.

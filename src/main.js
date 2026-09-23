@@ -1,22 +1,6 @@
 import { createApp, h } from 'vue';
 import { airports, airportSlugs } from './data/airports.js';
 
-// Trusted Types: richiesto da vercel.json (require-trusted-types-for 'script').
-// Le uniche stringhe che passano per v-html in App.vue sono testi i18n statici
-// scritti dagli sviluppatori (titolo hero, testo privacy/cookie) — non input utente —
-// quindi una policy "passthrough" è sicura. Deve essere registrata PRIMA di qualsiasi
-// createApp().mount(), altrimenti Vue viene bloccato dal browser sulle direttive v-html.
-if (window.trustedTypes && window.trustedTypes.createPolicy) {
-  try {
-    window.trustedTypes.createPolicy('default', {
-      createHTML: (s) => s,
-    });
-  } catch (e) {
-    // Policy già registrata (es. HMR in dev) — ignorare.
-  }
-}
-
-
 // La pagina di gestione prenotazioni si apre solo con questo link segreto:
 // https://amedeo-ncc.vercel.app/#gestione-9f3k2x7q
 // Chi non conosce questo link vede solo il sito pubblico normale.

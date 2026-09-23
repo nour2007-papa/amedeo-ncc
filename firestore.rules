@@ -25,16 +25,14 @@ service cloud.firestore {
       // الزائر يستطيع إنشاء طلب جديد فقط، ولا يستطيع القراءة أو التعديل أو الحذف.
       allow create: if request.auth == null
         && request.resource.data.keys().hasOnly([
-          'editToken', 'name', 'titolo', 'country', 'phone', 'service', 'serviceDate',
+          'name', 'titolo', 'country', 'phone', 'service', 'serviceDate',
           'people', 'flight', 'hotel', 'bags', 'details', 'lang',
           'tipoServizio', 'lingua', 'dataOra', 'zona', 'destinazione',
           'volo', 'passeggeri', 'bagagli', 'confirmed', 'createdAt'
         ])
         && request.resource.data.keys().hasAll([
-          'name', 'phone', 'createdAt', 'confirmed', 'editToken'
+          'name', 'phone', 'createdAt', 'confirmed'
         ])
-        && request.resource.data.editToken is string
-        && request.resource.data.editToken.size() == 32
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 100

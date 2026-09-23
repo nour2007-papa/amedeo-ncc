@@ -5,7 +5,7 @@ import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
 } from 'firebase/auth';
 import {
-  getFirestore, collection, query, orderBy, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, setDoc, getDocs, getDoc, runTransaction,
+  getFirestore, collection, query, orderBy, where, onSnapshot, doc, updateDoc, addDoc, setDoc, getDocs, getDoc, runTransaction, serverTimestamp,
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebase.js';
 import { fleetDb, fleetAuth } from './firebase-fleet.js';
@@ -784,7 +784,9 @@ function subscribeBookings() {
   if (unsubBookings) return; // già in ascolto, evita doppie sottoscrizioni
   const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
   unsubBookings = onSnapshot(q, (snap) => {
-    bookings.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    bookings.value = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((b) => !b.deleted);
     bookingsLoading.value = false;
   }, (err) => {
     console.error('Errore nel caricamento delle prenotazioni:', err);
@@ -1128,9 +1130,12 @@ function openDriverWaLink() {
 }
 
 async function deleteBooking(b) {
-  if (!confirm(`Eliminare la richiesta di "${b.name || 'cliente'}"? L'azione non è reversibile.`)) return;
+  if (!confirm(`Eliminare la richiesta di "${b.name || 'cliente'}"? Potrà essere ripristinata solo manualmente dalla console Firebase.`)) return;
   try {
-    await deleteDoc(doc(db, 'bookings', b.id));
+    await updateDoc(doc(db, 'bookings', b.id), {
+      deleted: true,
+      deletedAt: serverTimestamp(),
+    });
   } catch (e) {
     console.error('Delete booking error:', e);
     alert('Errore: impossibile eliminare la richiesta. Riprova.');

@@ -3,7 +3,12 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
+  multiFactor, getMultiFactorResolver, TotpMultiFactorGenerator,
 } from 'firebase/auth';
+// Genera il QR code interamente lato client — il segreto TOTP non viene mai
+// inviato a servizi esterni (a differenza di un generatore QR online).
+// Richiede: npm install qrcode
+import QRCode from 'qrcode';
 import {
   getFirestore, collection, query, orderBy, where, onSnapshot, doc, updateDoc, addDoc, setDoc, getDocs, getDoc, runTransaction, serverTimestamp,
 } from 'firebase/firestore';
@@ -25,6 +30,20 @@ const showPassword = ref(false);
 const loginError = ref('');
 const loggingIn = ref(false);
 const accessDenied = ref(false);
+
+// --- TOTP MFA: secondo fattore in fase di login ---
+const mfaResolver = ref(null); // presente solo durante lo step 2 del login
+const mfaCode = ref('');
+const mfaError = ref('');
+const verifyingMfa = ref(false);
+
+// --- TOTP MFA: primo setup (quando l'admin non ha ancora un fattore registrato) ---
+const showTotpSetup = ref(false);
+const totpSecretObj = ref(null);
+const totpQrDataUrl = ref('');
+const totpSetupCode = ref('');
+const totpSetupError = ref('');
+const enrollingTotp = ref(false);
 // Stato della connessione admin al progetto Firebase di ncc-fleet. Se questo
 // resta 'error', la mirror delle prenotazioni verso fleet NON funzionerà
 // (le Firestore Rules di amedeo-fleet bloccano scritture senza questo login),
@@ -628,6 +647,12 @@ onMounted(() => {
       if (fleetAuthStatus.value === 'ok') {
         initializeEnhancedSync();
       }
+      // Se l'account admin non ha ancora un secondo fattore (TOTP) registrato,
+      // forza il setup subito dopo il login — niente accesso senza MFA attivo.
+      if (multiFactor(u).enrolledFactors.length === 0) {
+        showTotpSetup.value = true;
+        startTotpEnrollment();
+      }
     } else {
       unsubscribeBookings();
       cleanupEnhancedSync(); // Cleanup sync on logout
@@ -724,7 +749,13 @@ async function login() {
     loginFleet(emailTrimmed, password.value);
   } catch (e) {
     console.error('Login error:', e);
-    if (e.code === 'auth/user-not-found') {
+    if (e.code === 'auth/multi-factor-auth-required') {
+      // Password corretta, ma manca ancora il codice TOTP — salva il resolver
+      // e mostra il modal di verifica, senza trattarlo come errore.
+      mfaResolver.value = getMultiFactorResolver(auth, e);
+      mfaError.value = '';
+      mfaCode.value = '';
+    } else if (e.code === 'auth/user-not-found') {
       loginError.value = 'Nessun account trovato con questa email.';
     } else if (e.code === 'auth/wrong-password') {
       loginError.value = 'Password non corretta.';
@@ -737,6 +768,75 @@ async function login() {
     }
   } finally {
     loggingIn.value = false;
+  }
+}
+
+// Step 2 del login: conferma il codice TOTP e completa l'accesso.
+async function verifyMfaCode() {
+  if (!mfaResolver.value) return;
+  mfaError.value = '';
+  verifyingMfa.value = true;
+  try {
+    const hint = mfaResolver.value.hints.find(
+      (h) => h.factorId === TotpMultiFactorGenerator.FACTOR_ID,
+    );
+    if (!hint) throw new Error('no-totp-hint');
+    const assertion = TotpMultiFactorGenerator.assertionForSignIn(hint.uid, mfaCode.value.trim());
+    await mfaResolver.value.resolveSignIn(assertion);
+    mfaResolver.value = null;
+    mfaCode.value = '';
+    loginFleet(email.value.trim(), password.value);
+  } catch (e) {
+    console.error('MFA verify error:', e);
+    mfaError.value = 'Codice non valido o scaduto. Riprova.';
+  } finally {
+    verifyingMfa.value = false;
+  }
+}
+
+function cancelMfaSignIn() {
+  mfaResolver.value = null;
+  mfaCode.value = '';
+  mfaError.value = '';
+}
+
+// Genera un nuovo segreto TOTP e il relativo QR (lato client, via libreria
+// 'qrcode' — il segreto non lascia mai il browser se non verso Firebase).
+async function startTotpEnrollment() {
+  totpSetupError.value = '';
+  totpSetupCode.value = '';
+  try {
+    const session = await multiFactor(user.value).getSession();
+    const secret = await TotpMultiFactorGenerator.generateSecret(session);
+    totpSecretObj.value = secret;
+    const otpauthUrl = secret.generateQrCodeUrl(user.value.email, 'Grifone NCC Admin');
+    totpQrDataUrl.value = await QRCode.toDataURL(otpauthUrl);
+  } catch (e) {
+    console.error('TOTP secret error:', e);
+    totpSetupError.value = 'Errore nella generazione del codice. Riprova.';
+  }
+}
+
+// Conferma l'enrollment con il codice generato dall'app Authenticator.
+async function confirmTotpEnrollment() {
+  if (!totpSecretObj.value) return;
+  totpSetupError.value = '';
+  enrollingTotp.value = true;
+  try {
+    const assertion = TotpMultiFactorGenerator.assertionForEnrollment(
+      totpSecretObj.value,
+      totpSetupCode.value.trim(),
+    );
+    await multiFactor(user.value).enroll(assertion, 'Admin TOTP');
+    showTotpSetup.value = false;
+    totpSecretObj.value = null;
+    totpQrDataUrl.value = '';
+    totpSetupCode.value = '';
+  } catch (e) {
+    console.error('TOTP enroll error:', e);
+    totpSetupError.value = 'Codice non valido. Riscansiona il QR e riprova.';
+  } finally {
+    enrollingTotp.value = false;
   }
 }
 
@@ -1235,6 +1335,30 @@ async function installApp() {
           {{ resetSending ? 'Invio in corso...' : 'Password dimenticata?' }}
         </button>
       </form>
+
+      <div v-if="mfaResolver" class="admin-modal-overlay">
+        <div class="admin-modal">
+          <h2>Verifica in due passaggi</h2>
+          <p class="admin-modal-hint">Inserisci il codice a 6 cifre dalla tua app Authenticator.</p>
+          <input
+            type="text"
+            inputmode="numeric"
+            maxlength="6"
+            v-model.trim="mfaCode"
+            placeholder="000000"
+            class="admin-driver-input"
+            @keyup.enter="verifyMfaCode"
+            autofocus
+          >
+          <p v-if="mfaError" class="admin-modal-error">{{ mfaError }}</p>
+          <div class="admin-modal-actions">
+            <button class="admin-logout" @click="cancelMfaSignIn">Annulla</button>
+            <button class="admin-install" :disabled="verifyingMfa" @click="verifyMfaCode">
+              {{ verifyingMfa ? 'Verifica...' : 'Verifica' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-else class="admin-dashboard">
@@ -1347,6 +1471,34 @@ async function installApp() {
           <div class="admin-modal-actions">
             <button class="admin-logout" @click="cancelDriverModal">Annulla</button>
             <button class="admin-install" @click="confirmDriverModal">Conferma</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="showTotpSetup" class="admin-modal-overlay">
+        <div class="admin-modal">
+          <h2>Attiva verifica in due passaggi</h2>
+          <p class="admin-modal-hint">
+            Scansiona questo codice con Google Authenticator (o app equivalente), poi inserisci
+            il codice a 6 cifre generato. Obbligatorio per continuare.
+          </p>
+          <div v-if="totpQrDataUrl" class="admin-totp-qr">
+            <img :src="totpQrDataUrl" alt="QR TOTP" width="200" height="200">
+          </div>
+          <input
+            type="text"
+            inputmode="numeric"
+            maxlength="6"
+            v-model.trim="totpSetupCode"
+            placeholder="Codice a 6 cifre"
+            class="admin-driver-input"
+            @keyup.enter="confirmTotpEnrollment"
+          >
+          <p v-if="totpSetupError" class="admin-modal-error">{{ totpSetupError }}</p>
+          <div class="admin-modal-actions">
+            <button class="admin-install" :disabled="enrollingTotp" @click="confirmTotpEnrollment">
+              {{ enrollingTotp ? 'Attivazione...' : 'Attiva' }}
+            </button>
           </div>
         </div>
       </div>

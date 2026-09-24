@@ -813,7 +813,8 @@ async function startTotpEnrollment() {
     totpQrDataUrl.value = await QRCode.toDataURL(otpauthUrl);
   } catch (e) {
     console.error('TOTP secret error:', e);
-    totpSetupError.value = 'Errore nella generazione del codice. Riprova.';
+    // Temporaneo per diagnosi: mostra il codice errore reale invece del messaggio generico.
+    totpSetupError.value = `Errore: ${e.code || e.message || e}`;
   }
 }
 
@@ -1486,6 +1487,7 @@ async function installApp() {
             <img :src="totpQrDataUrl" alt="QR TOTP" width="200" height="200">
           </div>
           <input
+            v-if="totpQrDataUrl"
             type="text"
             inputmode="numeric"
             maxlength="6"
@@ -1496,7 +1498,10 @@ async function installApp() {
           >
           <p v-if="totpSetupError" class="admin-modal-error">{{ totpSetupError }}</p>
           <div class="admin-modal-actions">
-            <button class="admin-install" :disabled="enrollingTotp" @click="confirmTotpEnrollment">
+            <button v-if="!totpQrDataUrl" class="admin-install" @click="startTotpEnrollment">
+              Riprova
+            </button>
+            <button v-else class="admin-install" :disabled="enrollingTotp" @click="confirmTotpEnrollment">
               {{ enrollingTotp ? 'Attivazione...' : 'Attiva' }}
             </button>
           </div>

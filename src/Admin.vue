@@ -4,6 +4,7 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
   multiFactor, getMultiFactorResolver, TotpMultiFactorGenerator,
+  EmailAuthProvider, reauthenticateWithCredential,
 } from 'firebase/auth';
 // Genera il QR code interamente lato client — il segreto TOTP non viene mai
 // inviato a servizi esterni (a differenza di un generatore QR online).
@@ -44,6 +45,8 @@ const totpQrDataUrl = ref('');
 const totpSetupCode = ref('');
 const totpSetupError = ref('');
 const enrollingTotp = ref(false);
+const totpReauthPassword = ref('');
+const reauthenticating = ref(false);
 // Stato della connessione admin al progetto Firebase di ncc-fleet. Se questo
 // resta 'error', la mirror delle prenotazioni verso fleet NON funzionerà
 // (le Firestore Rules di amedeo-fleet bloccano scritture senza questo login),
@@ -651,7 +654,6 @@ onMounted(() => {
       // forza il setup subito dopo il login — niente accesso senza MFA attivo.
       if (multiFactor(u).enrolledFactors.length === 0) {
         showTotpSetup.value = true;
-        startTotpEnrollment();
       }
     } else {
       unsubscribeBookings();
@@ -802,6 +804,30 @@ function cancelMfaSignIn() {
 
 // Genera un nuovo segreto TOTP e il relativo QR (lato client, via libreria
 // 'qrcode' — il segreto non lascia mai il browser se non verso Firebase).
+// Step 0: Firebase richiede una sessione "fresca" per operazioni MFA
+// (l'errore server-side è CREDENTIAL_TOO_OLD_LOGIN_AGAIN se il login risale
+// a troppo tempo prima) — ri-autentichiamo con la password prima di procedere.
+async function reauthAndStartTotp() {
+  totpSetupError.value = '';
+  if (!totpReauthPassword.value) {
+    totpSetupError.value = 'Inserisci la password per continuare.';
+    return;
+  }
+  reauthenticating.value = true;
+  try {
+    const currentUser = auth.currentUser;
+    const credential = EmailAuthProvider.credential(currentUser.email, totpReauthPassword.value);
+    await reauthenticateWithCredential(currentUser, credential);
+    totpReauthPassword.value = '';
+    await startTotpEnrollment();
+  } catch (e) {
+    console.error('Reauth error:', e);
+    totpSetupError.value = 'Password errata. Riprova.';
+  } finally {
+    reauthenticating.value = false;
+  }
+}
+
 async function startTotpEnrollment() {
   totpSetupError.value = '';
   totpSetupCode.value = '';
@@ -1485,9 +1511,19 @@ async function installApp() {
         <div class="admin-modal">
           <h2>Attiva verifica in due passaggi</h2>
           <p class="admin-modal-hint">
-            Scansiona questo codice con Google Authenticator (o app equivalente), poi inserisci
-            il codice a 6 cifre generato. Obbligatorio per continuare.
+            Conferma la password per continuare, poi scansiona il codice con Google
+            Authenticator (o app equivalente) e inserisci il codice a 6 cifre generato.
+            Obbligatorio per continuare.
           </p>
+          <input
+            v-if="!totpQrDataUrl"
+            type="password"
+            v-model="totpReauthPassword"
+            placeholder="Conferma la tua password"
+            class="admin-driver-input"
+            @keyup.enter="reauthAndStartTotp"
+            autofocus
+          >
           <div v-if="totpQrDataUrl" class="admin-totp-qr">
             <img :src="totpQrDataUrl" alt="QR TOTP" width="200" height="200">
           </div>
@@ -1503,8 +1539,8 @@ async function installApp() {
           >
           <p v-if="totpSetupError" class="admin-modal-error">{{ totpSetupError }}</p>
           <div class="admin-modal-actions">
-            <button v-if="!totpQrDataUrl" class="admin-install" @click="startTotpEnrollment">
-              Riprova
+            <button v-if="!totpQrDataUrl" class="admin-install" :disabled="reauthenticating" @click="reauthAndStartTotp">
+              {{ reauthenticating ? 'Verifica...' : 'Continua' }}
             </button>
             <button v-else class="admin-install" :disabled="enrollingTotp" @click="confirmTotpEnrollment">
               {{ enrollingTotp ? 'Attivazione...' : 'Attiva' }}

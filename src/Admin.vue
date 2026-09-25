@@ -806,14 +806,19 @@ async function startTotpEnrollment() {
   totpSetupError.value = '';
   totpSetupCode.value = '';
   try {
-    const session = await multiFactor(user.value).getSession();
+    // IMPORTANTE: usare auth.currentUser (l'oggetto originale del SDK), MAI
+    // user.value — quest'ultimo è avvolto in un Proxy reattivo di Vue (ref()),
+    // e le API MFA di Firebase fanno controlli di identità interni (WeakMap)
+    // che falliscono silenziosamente con auth/internal-error se ricevono un
+    // Proxy invece dell'istanza originale di User.
+    const currentUser = auth.currentUser;
+    const session = await multiFactor(currentUser).getSession();
     const secret = await TotpMultiFactorGenerator.generateSecret(session);
     totpSecretObj.value = secret;
-    const otpauthUrl = secret.generateQrCodeUrl(user.value.email, 'Grifone NCC Admin');
+    const otpauthUrl = secret.generateQrCodeUrl(currentUser.email, 'Grifone NCC Admin');
     totpQrDataUrl.value = await QRCode.toDataURL(otpauthUrl);
   } catch (e) {
     console.error('TOTP secret error:', e);
-    // Temporaneo per diagnosi: mostra il codice errore reale invece del messaggio generico.
     totpSetupError.value = `Errore: ${e.code || e.message || e}`;
   }
 }
@@ -828,7 +833,7 @@ async function confirmTotpEnrollment() {
       totpSecretObj.value,
       totpSetupCode.value.trim(),
     );
-    await multiFactor(user.value).enroll(assertion, 'Admin TOTP');
+    await multiFactor(auth.currentUser).enroll(assertion, 'Admin TOTP');
     showTotpSetup.value = false;
     totpSecretObj.value = null;
     totpQrDataUrl.value = '';

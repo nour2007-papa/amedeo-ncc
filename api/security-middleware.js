@@ -9,11 +9,18 @@
 // العدّاد بيتخزن مركزيًا ويشتغل صح مهما كان عدد الـ instances. لو مش متظبطة،
 // بيرجع تلقائيًا لنفس سلوك الـ in-memory القديم (أفضل من لا شيء، وميكسرش
 // حاجة لمين لسه ملزّمش Redis).
+//
+// FIX (26 set 2026): كان في نداء INCR + EXPIRE(أول مرة) + TTL(دايمًا) = لحد
+// 3 نداءات HTTP منفصلة لكل طلب واحد، من غير timeout. تحت حمل عالي ده كان
+// بيزوّد فرصة timeout/بطء شبكة ويرجّع فشل متقطع (fallback لـ in-memory).
+// دلوقتي: نداء واحد فقط عبر Upstash pipeline (INCR + EXPIRE NX معًا)، بدون
+// نداء TTL منفصل (بنحسب reset تقريبيًا محليًا)، + AbortController (2s timeout).
 
 const MAX_REQUEST_SIZE = 1 * 1024 * 1024; // 1MB limit
 const RATE_LIMIT_MAX_REQUESTS = 100; // max requests per window
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes window
 const RATE_LIMIT_WINDOW_SECONDS = Math.floor(RATE_LIMIT_WINDOW_MS / 1000);
+const UPSTASH_TIMEOUT_MS = 2000; // لا تعلّق الـ function أكتر من 2 ثانية على Redis
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -30,36 +37,51 @@ if (!REDIS_ENABLED) {
 const rateLimitStore = new Map();
 
 /**
- * تنفيذ أمر واحد على Upstash عبر REST API (بدون أي مكتبة خارجية).
- * راجع: https://upstash.com/docs/redis/features/restapi
+ * تنفيذ عدّة أوامر على Upstash في نداء HTTP واحد عبر pipeline endpoint،
+ * بدل نداء منفصل لكل أمر. راجع:
+ * https://upstash.com/docs/redis/features/restapi#pipelining
+ * مع timeout عبر AbortController عشان لا نعلّق الـ function تحت حمل/بطء شبكة.
  */
-export async function upstashCommand(command) {
-  const res = await fetch(UPSTASH_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${UPSTASH_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-  });
-  if (!res.ok) {
-    throw new Error(`Upstash error: ${res.status}`);
+async function upstashPipeline(commands) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), UPSTASH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${UPSTASH_URL}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(commands),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`Upstash error: ${res.status}`);
+    }
+    // Pipeline response: array di { result } o { error } per ogni comando.
+    const data = await res.json();
+    return data;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  const data = await res.json();
-  return data.result;
 }
 
 /**
- * زيادة العدّاد الخاص بـ IP معيّن باستخدام Redis (INCR + EXPIRE أول مرة فقط).
- * يرجّع { count, isNew }.
+ * زيادة العدّاد الخاص بـ IP معيّن باستخدام Redis: INCR + EXPIRE NX في نداء
+ * pipeline واحد بس (NX = يضبط الصلاحية فقط لو الـ key معهوش صلاحية أصلًا،
+ * بيغنينا عن التفرع الشرطي "لو count === 1" ونداء EXPIRE منفصل).
+ * يرجّع العدد الحالي.
  */
 async function incrementRedisCounter(key) {
-  const count = await upstashCommand(['INCR', key]);
-  if (count === 1) {
-    // أول طلب لهذا الـ IP في النافذة الحالية: نضبط انتهاء الصلاحية
-    await upstashCommand(['EXPIRE', key, String(RATE_LIMIT_WINDOW_SECONDS)]);
+  const results = await upstashPipeline([
+    ['INCR', key],
+    ['EXPIRE', key, String(RATE_LIMIT_WINDOW_SECONDS), 'NX'],
+  ]);
+  const incrResult = results[0];
+  if (incrResult?.error) {
+    throw new Error(`Upstash INCR error: ${incrResult.error}`);
   }
-  return count;
+  return incrResult.result;
 }
 
 /**
@@ -103,14 +125,13 @@ export async function rateLimit(req, res, next) {
     try {
       const key = `ratelimit:${clientIp}`;
       count = await incrementRedisCounter(key);
-      // بنقرا الـ TTL الفعلي من Redis عشان الـ header يكون دقيق حتى لو
-      // الطلب مش أول واحد في النافذة.
-      const ttl = await upstashCommand(['TTL', key]);
-      const ttlSeconds = ttl > 0 ? ttl : RATE_LIMIT_WINDOW_SECONDS;
-      resetTime = new Date(Date.now() + ttlSeconds * 1000);
+      // FIX: مفيش نداء TTL منفصل تاني — الـ reset معروف تقريبيًا من عمر
+      // النافذة نفسها (دقة كافية لـ header إعلامي، مش لازم يكون بالثانية
+      // الظبط، ومفيش داعي لنداء Upstash إضافي لكل طلب).
+      resetTime = new Date(Date.now() + RATE_LIMIT_WINDOW_MS);
     } catch (error) {
-      // لو Redis فشل لأي سبب (شبكة، حد الاستخدام...)، منمنعش الموقع من
-      // الشغل — بنرجع للـ in-memory بدل ما نكسر كل الـ API.
+      // لو Redis فشل لأي سبب (شبكة، timeout، حد الاستخدام...)، منمنعش الموقع
+      // من الشغل — بنرجع للـ in-memory بدل ما نكسر كل الـ API.
       console.error('[security-middleware] فشل Redis rate limit، الرجوع للذاكرة المحلية:', error.message);
       const memResult = incrementMemoryCounter(clientIp);
       count = memResult.count;

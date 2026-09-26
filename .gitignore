@@ -6,3 +6,4 @@ dist/
 .env.local
 .env.*.local
 serviceAccountKey.json
+sync-pending-test.js

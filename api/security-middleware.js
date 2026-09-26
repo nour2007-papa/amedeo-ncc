@@ -56,7 +56,10 @@ async function upstashPipeline(commands) {
       signal: controller.signal,
     });
     if (!res.ok) {
-      throw new Error(`Upstash error: ${res.status}`);
+      // DEBUG (26 set 2026): نطبع نص الرد كامل عشان نشوف السبب الحقيقي
+      // للفشل (404 مسار غلط؟ 401 توكن غلط؟ رسالة خطأ من Upstash نفسه؟).
+      const bodyText = await res.text().catch(() => '(تعذّرت قراءة body)');
+      throw new Error(`Upstash error: ${res.status} — ${bodyText}`);
     }
     // Pipeline response: array di { result } o { error } per ogni comando.
     const data = await res.json();
@@ -77,8 +80,16 @@ async function incrementRedisCounter(key) {
     ['INCR', key],
     ['EXPIRE', key, String(RATE_LIMIT_WINDOW_SECONDS), 'NX'],
   ]);
+  // DEBUG (26 set 2026): تحقق صريح من شكل الرد عشان لو مش array نعرف فورًا
+  // بدل ما ناخد خطأ غامض زي "Cannot read properties of undefined".
+  if (!Array.isArray(results)) {
+    throw new Error(`Upstash pipeline: رد غير متوقع (مش array): ${JSON.stringify(results)}`);
+  }
   const incrResult = results[0];
-  if (incrResult?.error) {
+  if (!incrResult) {
+    throw new Error(`Upstash pipeline: عنصر أول فاضي في الرد: ${JSON.stringify(results)}`);
+  }
+  if (incrResult.error) {
     throw new Error(`Upstash INCR error: ${incrResult.error}`);
   }
   return incrResult.result;

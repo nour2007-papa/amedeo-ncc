@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",
+    "knip": "^6.38.0",
     "puppeteer": "latest",
     "vite": "^8.2.1"
   },

@@ -7,3 +7,7 @@ dist/
 .env.*.local
 serviceAccountKey.json
 sync-pending-test.js
+
+.vercel
+.env*
+site-key-b64.txt

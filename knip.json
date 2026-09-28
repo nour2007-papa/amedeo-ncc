@@ -1,0 +1,11 @@
+{
+  "entry": [
+    "src/main.js",
+    "api/**/*.js",
+    "public/sw-gestione.js",
+    "scripts/*.js",
+    ".agents/skills/**/*.cjs"
+  ],
+  "project": ["src/**/*.{js,vue}", "api/**/*.js"],
+  "ignoreDependencies": ["firebase-admin"]
+}

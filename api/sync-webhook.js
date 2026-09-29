@@ -219,6 +219,14 @@ async function handleFleetEvent(event, siteDb, fleetDb) {
   return { bookingId: bookingDoc.id, status: 'synced_from_fleet' };
 }
 
+// Converte in testo solo stringhe o numeri finiti (validazione di tipo:
+// i dati del webhook non sono una fonte già verificata).
+function asText(value) {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
+}
+
 /**
  * بناء بيانات Fleet
  */
@@ -232,11 +240,18 @@ function buildFleetData(booking) {
   return {
     cliente: booking.name || '',
     telefono: `${booking.country || ''} ${booking.phone || ''}`.trim(),
-    dataOra: booking.serviceDate ? `${booking.serviceDate}T00:00:00` : new Date().toISOString(),
+    // Come in sync-pending.js: usa l'orario completo (dataOra) se presente,
+    // altrimenti solo data a mezzanotte, altrimenti "adesso".
+    dataOra: typeof booking.dataOra === 'string' && booking.dataOra
+      ? (booking.dataOra.length === 16 ? `${booking.dataOra}:00` : booking.dataOra)
+      : (booking.serviceDate ? `${booking.serviceDate}T00:00:00` : new Date().toISOString()),
     zona: booking.zona || 'Sito agenzia',
     destinazione: booking.hotel || booking.service || '',
     veicolo: '',
     autista: '',
+    volo: asText(booking.flight),
+    persone: asText(booking.people),
+    valigie: asText(booking.bags),
     stato: booking.confirmed ? 'confermato' : 'nuovo_contatto',
     note: noteParts.join(' | '),
     createdAt: new Date().toISOString(),
@@ -265,6 +280,9 @@ function determineFleetUpdates(booking) {
   // prima di essere scritto o usato con metodi tipo .includes().
   if (booking.dataOra && typeof booking.dataOra === 'string') updates.dataOra = booking.dataOra;
   if (booking.destinazione && typeof booking.destinazione === 'string') updates.destinazione = booking.destinazione;
+  if (asText(booking.flight)) updates.volo = asText(booking.flight);
+  if (asText(booking.people)) updates.persone = asText(booking.people);
+  if (asText(booking.bags)) updates.valigie = asText(booking.bags);
   if (booking.volo && typeof booking.volo === 'string') {
     // تحديث note لإضافة معلومات الرحلة
     // (fix) existingNote يُقبل فقط لو من نوع string؛ غير كده أي قيمة أخرى

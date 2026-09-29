@@ -136,6 +136,10 @@ export default async function handler(req, res) {
         destinazione: hotel || service || '',
         veicolo: '',
         autista: '',
+        // Campi strutturati per il Portale Autista (oltre al testo in "note")
+        volo: flight ? String(flight) : '',
+        persone: people ? String(people) : '',
+        valigie: bags ? String(bags) : '',
         stato: 'nuovo_contatto',
         note: noteParts.join(' | '),
         createdAt: new Date().toISOString(),

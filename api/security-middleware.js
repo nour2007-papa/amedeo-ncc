@@ -70,6 +70,21 @@ async function upstashPipeline(commands) {
 }
 
 /**
+ * تنفيذ أمر Redis واحد وإرجاع الـ result مباشرة (مثلاً SET ... NX EX => 'OK' أو null).
+ * مستخدم من sync-webhook.js (منع الـ replay). بيمر على نفس pipeline + الـ timeout.
+ */
+export async function upstashCommand(command) {
+  const results = await upstashPipeline([command]);
+  if (!Array.isArray(results) || !results[0]) {
+    throw new Error(`Upstash command: رد غير متوقع: ${JSON.stringify(results)}`);
+  }
+  if (results[0].error) {
+    throw new Error(`Upstash command error: ${results[0].error}`);
+  }
+  return results[0].result;
+}
+
+/**
  * زيادة العدّاد الخاص بـ IP معيّن باستخدام Redis: INCR + EXPIRE NX في نداء
  * pipeline واحد بس (NX = يضبط الصلاحية فقط لو الـ key معهوش صلاحية أصلًا،
  * بيغنينا عن التفرع الشرطي "لو count === 1" ونداء EXPIRE منفصل).

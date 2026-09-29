@@ -109,7 +109,7 @@ export default async function handler(req, res) {
   }
 
   // --- Costruzione dati fleet SOLO da booking (letto da siteDb) ---
-  const { name, country, phone, service, serviceDate, dataOra, hotel, flight, people, bags, details } = booking;
+  const { name, country, phone, service, serviceDate, dataOra, hotel, flight, people, bags, details, zona, destinazione } = booking;
 
   const noteParts = [`Da sito agenzia · ${service || ''}`];
   if (flight) noteParts.push(`Volo: ${flight}`);
@@ -133,7 +133,11 @@ export default async function handler(req, res) {
           ? (dataOra.length === 16 ? `${dataOra}:00` : dataOra)
           : (serviceDate ? `${serviceDate}T00:00:00` : new Date().toISOString()),
         zona: 'Sito agenzia',
-        destinazione: hotel || service || '',
+        // BookingForm salva la destinazione sia in "destinazione" sia in "hotel"
+        destinazione: destinazione || hotel || service || '',
+        // Punto di ritiro reale scelto dal cliente (campo "zona" del form sito);
+        // "zona" di fleet resta l'etichetta di origine 'Sito agenzia'.
+        ritiro: zona ? String(zona) : '',
         veicolo: '',
         autista: '',
         // Campi strutturati per il Portale Autista (oltre al testo in "note")

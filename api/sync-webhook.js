@@ -246,7 +246,8 @@ function buildFleetData(booking) {
       ? (booking.dataOra.length === 16 ? `${booking.dataOra}:00` : booking.dataOra)
       : (booking.serviceDate ? `${booking.serviceDate}T00:00:00` : new Date().toISOString()),
     zona: booking.zona || 'Sito agenzia',
-    destinazione: booking.hotel || booking.service || '',
+    destinazione: asText(booking.destinazione) || booking.hotel || booking.service || '',
+    ritiro: asText(booking.zona),
     veicolo: '',
     autista: '',
     volo: asText(booking.flight),
@@ -280,6 +281,7 @@ function determineFleetUpdates(booking) {
   // prima di essere scritto o usato con metodi tipo .includes().
   if (booking.dataOra && typeof booking.dataOra === 'string') updates.dataOra = booking.dataOra;
   if (booking.destinazione && typeof booking.destinazione === 'string') updates.destinazione = booking.destinazione;
+  if (asText(booking.zona)) updates.ritiro = asText(booking.zona);
   if (asText(booking.flight)) updates.volo = asText(booking.flight);
   if (asText(booking.people)) updates.persone = asText(booking.people);
   if (asText(booking.bags)) updates.valigie = asText(booking.bags);

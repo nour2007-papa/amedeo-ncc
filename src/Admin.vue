@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut,
@@ -491,6 +491,52 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
 // corrispondente di amedeo-ncc, usando lo stesso fleetDocId scritto da
 // applyFleetMirror(). Copre il caso in cui l'autista venga assegnato (o la
 // corsa completata) direttamente da ncc-fleet, senza passare da Admin.vue.
+// Ultimo stato noto dei documenti fleet (id -> dati). Serve perché il primo
+// snapshot del listener può arrivare PRIMA che `bookings` sia caricato: in
+// quel caso l'evento 'added' veniva scartato (nessun booking trovato) e non
+// si ripresentava più. Ora i documenti vengono riconciliati anche quando
+// `bookings` cambia (vedi watch sotto).
+const fleetStatusDocs = new Map();
+const fleetSyncInFlight = new Set();
+
+async function syncFleetDocToBooking(fleetDocId, fleetData) {
+  const matchedBooking = bookings.value.find((b) => b.fleetDocId === fleetDocId);
+  if (!matchedBooking) return;
+  if (fleetSyncInFlight.has(fleetDocId)) return;
+  fleetSyncInFlight.add(fleetDocId);
+  try {
+    if (fleetData.stato === 'completato') {
+      // Il flag completionSynced sul documento fleet evita di riscrivere
+      // ogni volta che il listener si riattiva (es. dopo un refresh).
+      if (fleetData.completionSynced || matchedBooking.completed) return;
+      const completedAt = fleetData.tripEndedAt?.toDate
+        ? fleetData.tripEndedAt.toDate().toISOString()
+        : new Date().toISOString();
+      await updateDoc(doc(db, 'bookings', matchedBooking.id), {
+        completed: true,
+        completedAt,
+      });
+      await updateDoc(doc(fleetDb, 'prenotazioni', fleetDocId), { completionSynced: true });
+      return;
+    }
+
+    if (fleetData.stato === 'autista_assegnato') {
+      const assignedDriver = fleetData.autista || '';
+      // Idempotente: scrive solo se il sito non riflette già questo
+      // autista (evita scritture ripetute ad ogni riattivazione).
+      if (!assignedDriver || matchedBooking.driverName === assignedDriver) return;
+      await updateDoc(doc(db, 'bookings', matchedBooking.id), {
+        confirmed: true,
+        driverName: assignedDriver,
+      });
+    }
+  } catch (e) {
+    console.error('[fleet-sync] Errore sincronizzazione stato fleet:', e);
+  } finally {
+    fleetSyncInFlight.delete(fleetDocId);
+  }
+}
+
 function listenForFleetStatusUpdates() {
   if (unsubFleetStatusUpdates || !fleetDb) return;
   const q = query(
@@ -498,41 +544,13 @@ function listenForFleetStatusUpdates() {
     where('stato', 'in', ['autista_assegnato', 'completato'])
   );
   unsubFleetStatusUpdates = onSnapshot(q, (snap) => {
-    snap.docChanges().forEach(async (change) => {
-      if (change.type !== 'added' && change.type !== 'modified') return;
-      const fleetData = change.doc.data();
-      const matchedBooking = bookings.value.find((b) => b.fleetDocId === change.doc.id);
-      if (!matchedBooking) return;
-
-      try {
-        if (fleetData.stato === 'completato') {
-          // Il flag completionSynced sul documento fleet evita di riscrivere
-          // ogni volta che il listener si riattiva (es. dopo un refresh).
-          if (fleetData.completionSynced || matchedBooking.completed) return;
-          const completedAt = fleetData.tripEndedAt?.toDate
-            ? fleetData.tripEndedAt.toDate().toISOString()
-            : new Date().toISOString();
-          await updateDoc(doc(db, 'bookings', matchedBooking.id), {
-            completed: true,
-            completedAt,
-          });
-          await updateDoc(doc(fleetDb, 'prenotazioni', change.doc.id), { completionSynced: true });
-          return;
-        }
-
-        if (fleetData.stato === 'autista_assegnato') {
-          const assignedDriver = fleetData.autista || '';
-          // Idempotente: scrive solo se il sito non riflette già questo
-          // autista (evita scritture ripetute ad ogni riattivazione).
-          if (!assignedDriver || matchedBooking.driverName === assignedDriver) return;
-          await updateDoc(doc(db, 'bookings', matchedBooking.id), {
-            confirmed: true,
-            driverName: assignedDriver,
-          });
-        }
-      } catch (e) {
-        console.error('[fleet-sync] Errore sincronizzazione stato fleet:', e);
+    snap.docChanges().forEach((change) => {
+      if (change.type === 'removed') {
+        fleetStatusDocs.delete(change.doc.id);
+        return;
       }
+      fleetStatusDocs.set(change.doc.id, change.doc.data());
+      syncFleetDocToBooking(change.doc.id, change.doc.data());
     });
   }, (err) => console.error('[fleet-sync] Errore listener stato fleet:', err));
 }
@@ -541,6 +559,7 @@ function stopListenForFleetStatusUpdates() {
     unsubFleetStatusUpdates();
     unsubFleetStatusUpdates = null;
   }
+  fleetStatusDocs.clear();
 }
 
 const flushingSyncQueue = ref(false);
@@ -911,6 +930,13 @@ function logout() {
 const bookings = ref([]);
 const bookingsLoading = ref(true);
 let unsubBookings = null;
+
+// Quando `bookings` si (ri)carica, riconcilia i documenti fleet già ricevuti
+// ma rimasti senza booking corrispondente al momento dell'evento.
+watch(bookings, () => {
+  fleetStatusDocs.forEach((data, id) => syncFleetDocToBooking(id, data));
+});
+
 
 function subscribeBookings() {
   if (unsubBookings) return; // già in ascolto, evita doppie sottoscrizioni

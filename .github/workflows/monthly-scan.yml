@@ -1,10 +1,17 @@
-name: Monthly Wapiti Security Scan
+
+name: Wapiti Security Scan
 
 on:
+  # 1. الفحص مع كل رفع أو تحديث جديد للكود (CI/CD)
+  push:
+    branches: [ main ]
+
+  # 2. الفحص الدوري التلقائي (شهرياً: أول يوم في الشهر الساعة 12 ظهراً)
   schedule:
-    # يعمل الساعة 12 ظهراً في اليوم الأول من كل شهر
     - cron: '0 12 1 * *'
-  workflow_dispatch: # يتيح لك تشغيله يدوياً أيضاً في أي وقت
+
+  # 3 & 4. التشغيل اليدوي الفوري بضغطة زر (عند تغيير الاستضافة أو ظهور ثغرات Zero-Day)
+  workflow_dispatch:
 
 jobs:
   scan:
@@ -20,7 +27,7 @@ jobs:
 
       - name: Run Wapiti Scan
         run: |
-          wapiti -u https://amedeo-ncc.vercel.app/ -f html -o ./wapiti_report
+          wapiti -u https://amedeo-ncc.vercel.app/ --flush-session -f html -o ./wapiti_report
 
       - name: Upload Report
         uses: actions/upload-artifact@v4

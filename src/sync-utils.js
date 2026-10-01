@@ -260,6 +260,40 @@ export function setupRealtimeSyncListener(db, orchestrator, options = {}) {
   let debounceTimer = null;
   let pendingChanges = new Set();
 
+  // Circuit breaker: se la stessa prenotazione viene sincronizzata più di
+  // BURST_LIMIT volte in BURST_WINDOW_MS, la sync stessa sta quasi certamente
+  // riscrivendo il documento e rilanciando il listener (loop infinito, costo
+  // continuo di letture/scritture Firestore). In quel caso la prenotazione
+  // viene messa in pausa per COOLDOWN_MS.
+  const BURST_LIMIT = 3;
+  const BURST_WINDOW_MS = 60 * 1000;
+  const COOLDOWN_MS = 10 * 60 * 1000;
+  const recentSyncs = new Map(); // bookingId -> [timestamp, ...]
+  const blockedUntil = new Map(); // bookingId -> timestamp
+
+  const allowSync = (bookingId) => {
+    const now = Date.now();
+    const until = blockedUntil.get(bookingId);
+    if (until) {
+      if (now < until) return false;
+      blockedUntil.delete(bookingId);
+      recentSyncs.delete(bookingId);
+    }
+    const recent = (recentSyncs.get(bookingId) || []).filter((t) => now - t < BURST_WINDOW_MS);
+    if (recent.length >= BURST_LIMIT) {
+      blockedUntil.set(bookingId, now + COOLDOWN_MS);
+      recentSyncs.delete(bookingId);
+      console.warn(
+        `[RealtimeSyncListener] Loop di sincronizzazione rilevato su ${bookingId}: ` +
+        `in pausa per ${COOLDOWN_MS / 60000} minuti`
+      );
+      return false;
+    }
+    recent.push(now);
+    recentSyncs.set(bookingId, recent);
+    return true;
+  };
+
   const handleChange = (change) => {
     if (change.type === 'added' || change.type === 'modified') {
       pendingChanges.add(change.doc.id);
@@ -270,8 +304,9 @@ export function setupRealtimeSyncListener(db, orchestrator, options = {}) {
       }
 
       debounceTimer = setTimeout(async () => {
-        const bookingIds = Array.from(pendingChanges);
+        const bookingIds = Array.from(pendingChanges).filter(allowSync);
         pendingChanges.clear();
+        if (!bookingIds.length) return;
 
         if (onSyncStart) onSyncStart(bookingIds);
 

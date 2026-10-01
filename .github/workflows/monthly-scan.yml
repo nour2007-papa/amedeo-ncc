@@ -1,0 +1,29 @@
+name: Monthly Wapiti Security Scan
+
+on:
+  schedule:
+    # يعمل الساعة 12 ظهراً في اليوم الأول من كل شهر
+    - cron: '0 12 1 * *'
+  workflow_dispatch: # يتيح لك تشغيله يدوياً أيضاً في أي وقت
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Wapiti
+        run: pip install wapiti3
+
+      - name: Run Wapiti Scan
+        run: |
+          wapiti -u https://amedeo-ncc.vercel.app/ -f html -o ./wapiti_report
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: wapiti-security-report
+          path: ./wapiti_report

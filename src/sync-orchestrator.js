@@ -42,6 +42,23 @@ export const SYNC_STATES = {
 };
 
 /**
+ * Converte qualsiasi tipo di timestamp (stringa ISO, Date, Firestore Timestamp
+ * o oggetto {seconds, nanoseconds}) in millisecondi. Ritorna NaN se non valido.
+ * Necessario perché `new Date(firestoreTimestamp)` dà "Invalid Date" e il
+ * confronto con NaN è sempre falso: il guard anti-loop non scattava mai per le
+ * prenotazioni con createdAt/updatedAt salvati come Timestamp (es. serverTimestamp()).
+ */
+function toMillis(value) {
+  if (!value) return NaN;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'object' && typeof value.seconds === 'number') {
+    return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+  }
+  return new Date(value).getTime();
+}
+
+/**
  * Sync Orchestrator - منسق مزامنة مركزي
  */
 export class SyncOrchestrator {
@@ -206,12 +223,14 @@ export class SyncOrchestrator {
     // all'infinito anche quando tutto funziona correttamente. Se il
     // booking è già sincronizzato più di recente dell'ultima modifica
     // reale, non c'è nulla da fare.
-    if (
-      !options.forceSync &&
-      booking.syncedAt &&
-      new Date(booking.updatedAt || booking.createdAt) <= new Date(booking.syncedAt)
-    ) {
-      return { action: 'skip', reason: 'Already synced, no changes since last sync' };
+    if (!options.forceSync && booking.syncedAt) {
+      const lastChangeMs = toMillis(booking.updatedAt || booking.createdAt);
+      const lastSyncMs = toMillis(booking.syncedAt);
+      // Se uno dei due timestamp non è leggibile, meglio saltare che innescare
+      // un loop (syncedAt viene sempre scritto da noi in formato ISO).
+      if (Number.isNaN(lastChangeMs) || Number.isNaN(lastSyncMs) || lastChangeMs <= lastSyncMs) {
+        return { action: 'skip', reason: 'Already synced, no changes since last sync' };
+      }
     }
 
     // إذا كان الملغى

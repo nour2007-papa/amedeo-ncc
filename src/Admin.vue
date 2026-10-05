@@ -1043,9 +1043,10 @@ function weekKeyOf(d) {
 
 const filteredBookings = computed(() => {
   if (quickFilter.value === 'archive') {
-    return bookings.value.filter((b) => b.completed);
+    // Archivio: completate + annullate da ncc-fleet
+    return bookings.value.filter((b) => b.completed || b.cancelledFromFleet);
   }
-  const active = bookings.value.filter((b) => !b.completed);
+  const active = bookings.value.filter((b) => !b.completed && !b.cancelledFromFleet);
   if (quickFilter.value === 'all') return active;
   if (quickFilter.value === 'confirmed') return active.filter((b) => b.confirmed);
   const now = new Date();
@@ -1224,6 +1225,8 @@ async function performToggle(b, willBeConfirmed, driverName, lang, driverPhone) 
     // questa modifica reale — bloccherebbe per errore ogni conferma/
     // annullamento futuro scambiandolo per "nessun cambiamento".
     const updates = { confirmed: willBeConfirmed, updatedAt: new Date().toISOString() };
+    // Riconferma di una prenotazione annullata da fleet: torna fuori dall'Archivio.
+    if (willBeConfirmed) updates.cancelledFromFleet = false;
     if (willBeConfirmed && driverName) updates.driverName = driverName;
     await updateDoc(doc(db, 'bookings', b.id), updates);
   } catch (e) {
@@ -1661,7 +1664,8 @@ async function installApp() {
             >
               <div class="admin-card-top">
                 <b>{{ b.name || '—' }}</b>
-                <span class="admin-badge" :class="{ on: b.confirmed }">
+                <span v-if="b.cancelledFromFleet && !b.completed" class="admin-badge">❌ Annullata</span>
+                <span v-else class="admin-badge" :class="{ on: b.confirmed }">
                   {{ b.confirmed ? 'Confermata' : 'Da confermare' }}
                 </span>
                 <span v-if="b.completed" class="admin-badge on">✅ Completata</span>

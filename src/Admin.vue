@@ -545,10 +545,15 @@ async function syncFleetDocToBooking(fleetDocId, fleetData, { reconcile = false 
       const assignedDriver = fleetData.autista || '';
       // Idempotente: scrive solo se il sito non riflette già questo
       // autista (evita scritture ripetute ad ogni riattivazione).
-      if (!assignedDriver || matchedBooking.driverName === assignedDriver) return;
+      const alreadySynced = matchedBooking.driverName === assignedDriver
+        && matchedBooking.confirmed && !matchedBooking.cancelledFromFleet;
+      if (!assignedDriver || alreadySynced) return;
       await updateDoc(doc(db, 'bookings', matchedBooking.id), {
         confirmed: true,
         driverName: assignedDriver,
+        // Se la corsa era stata annullata da fleet e poi riassegnata,
+        // torna fuori dall'Archivio.
+        cancelledFromFleet: false,
       });
     }
   } catch (e) {
@@ -703,6 +708,7 @@ onMounted(() => {
       authLoading.value = false;
       unsubscribeBookings();
       cleanupEnhancedSync(); // Cleanup sync on access denied
+      stopListenForFleetStatusUpdates();
       return;
     }
     accessDenied.value = false;
@@ -722,6 +728,7 @@ onMounted(() => {
     } else {
       unsubscribeBookings();
       cleanupEnhancedSync(); // Cleanup sync on logout
+      stopListenForFleetStatusUpdates();
     }
   });
 

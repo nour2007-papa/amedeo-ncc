@@ -233,6 +233,16 @@ export class SyncOrchestrator {
       }
     }
 
+    // Annullata da ncc-fleet (Admin.vue → listenForFleetStatusUpdates imposta
+    // confirmed:false + cancelledFromFleet:true): il documento fleet è già
+    // 'annullato'. Senza questo skip, per i booking senza syncedAt (es. mirror
+    // creato dal ramo legacy) il ramo !confirmed qui sotto riscriveva
+    // stato:'nuovo_contatto' su fleet, resuscitando la corsa annullata.
+    // Una riconferma dal sito azzera cancelledFromFleet e sincronizza normalmente.
+    if (booking.cancelledFromFleet && !booking.confirmed) {
+      return { action: 'skip', reason: 'Cancelled from fleet, fleet mirror already annullato' };
+    }
+
     // إذا كان الملغى
     if (booking.cancelledByClient) {
       if (booking.fleetDocId) {

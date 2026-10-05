@@ -487,7 +487,7 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
 
 // ---------- Sincronizzazione inversa: autista assegnato + completamento (ncc-fleet → amedeo-ncc) ----------
 // Ascolta su fleetDb i documenti 'prenotazioni' con stato IN
-// ['autista_assegnato', 'completato'] e riporta l'aggiornamento sul booking
+// ['autista_assegnato', 'completato', 'annullato'] e riporta l'aggiornamento sul booking
 // corrispondente di amedeo-ncc, usando lo stesso fleetDocId scritto da
 // applyFleetMirror(). Copre il caso in cui l'autista venga assegnato (o la
 // corsa completata) direttamente da ncc-fleet, senza passare da Admin.vue.
@@ -499,12 +499,33 @@ async function applyFleetMirror({ bookingId, willBeConfirmed, driverName }) {
 const fleetStatusDocs = new Map();
 const fleetSyncInFlight = new Set();
 
-async function syncFleetDocToBooking(fleetDocId, fleetData) {
+// Documenti fleet "annullato" arrivati quando il booking non era ancora
+// caricato: solo questi vengono applicati dalla riconciliazione (watch),
+// così uno stato "annullato" vecchio non può annullare una riconferma recente.
+const pendingFleetCancels = new Set();
+
+async function syncFleetDocToBooking(fleetDocId, fleetData, { reconcile = false } = {}) {
   const matchedBooking = bookings.value.find((b) => b.fleetDocId === fleetDocId);
-  if (!matchedBooking) return;
+  if (!matchedBooking) {
+    if (fleetData.stato === 'annullato') pendingFleetCancels.add(fleetDocId);
+    return;
+  }
   if (fleetSyncInFlight.has(fleetDocId)) return;
   fleetSyncInFlight.add(fleetDocId);
   try {
+    if (fleetData.stato === 'annullato') {
+      if (reconcile && !pendingFleetCancels.has(fleetDocId)) return;
+      pendingFleetCancels.delete(fleetDocId);
+      // Idempotente: se il sito è già non confermato (o completato) non scrive.
+      if (!matchedBooking.confirmed || matchedBooking.completed) return;
+      await updateDoc(doc(db, 'bookings', matchedBooking.id), {
+        confirmed: false,
+        cancelledFromFleet: true,
+      });
+      return;
+    }
+    pendingFleetCancels.delete(fleetDocId);
+
     if (fleetData.stato === 'completato') {
       // Il flag completionSynced sul documento fleet evita di riscrivere
       // ogni volta che il listener si riattiva (es. dopo un refresh).
@@ -537,20 +558,43 @@ async function syncFleetDocToBooking(fleetDocId, fleetData) {
   }
 }
 
+// Documento fleet eliminato: l'evento 'removed' scatta anche quando lo stato
+// esce dal filtro, quindi si verifica che il documento non esista davvero.
+async function handleFleetDocRemoved(fleetDocId) {
+  const b = bookings.value.find((x) => x.fleetDocId === fleetDocId);
+  if (!b || !b.confirmed || b.completed) return;
+  try {
+    const snap = await getDoc(doc(fleetDb, 'prenotazioni', fleetDocId));
+    if (snap.exists()) return;
+    await updateDoc(doc(db, 'bookings', b.id), {
+      confirmed: false,
+      cancelledFromFleet: true,
+    });
+  } catch (e) {
+    console.error('[fleet-sync] Errore gestione documento fleet eliminato:', e);
+  }
+}
+
 function listenForFleetStatusUpdates() {
   if (unsubFleetStatusUpdates || !fleetDb) return;
   const q = query(
     collection(fleetDb, 'prenotazioni'),
-    where('stato', 'in', ['autista_assegnato', 'completato'])
+    where('stato', 'in', ['autista_assegnato', 'completato', 'annullato'])
   );
   unsubFleetStatusUpdates = onSnapshot(q, (snap) => {
     snap.docChanges().forEach((change) => {
+      const id = change.doc.id;
       if (change.type === 'removed') {
-        fleetStatusDocs.delete(change.doc.id);
+        fleetStatusDocs.delete(id);
+        pendingFleetCancels.delete(id);
+        handleFleetDocRemoved(id);
         return;
       }
-      fleetStatusDocs.set(change.doc.id, change.doc.data());
-      syncFleetDocToBooking(change.doc.id, change.doc.data());
+      const data = change.doc.data();
+      fleetStatusDocs.set(id, data);
+      // Scrittura locale (il nostro stesso mirror sito → fleet): ignorata.
+      if (data.stato === 'annullato' && change.doc.metadata.hasPendingWrites) return;
+      syncFleetDocToBooking(id, data);
     });
   }, (err) => console.error('[fleet-sync] Errore listener stato fleet:', err));
 }
@@ -560,6 +604,7 @@ function stopListenForFleetStatusUpdates() {
     unsubFleetStatusUpdates = null;
   }
   fleetStatusDocs.clear();
+  pendingFleetCancels.clear();
 }
 
 const flushingSyncQueue = ref(false);
@@ -934,7 +979,7 @@ let unsubBookings = null;
 // Quando `bookings` si (ri)carica, riconcilia i documenti fleet già ricevuti
 // ma rimasti senza booking corrispondente al momento dell'evento.
 watch(bookings, () => {
-  fleetStatusDocs.forEach((data, id) => syncFleetDocToBooking(id, data));
+  fleetStatusDocs.forEach((data, id) => syncFleetDocToBooking(id, data, { reconcile: true }));
 });
 
 

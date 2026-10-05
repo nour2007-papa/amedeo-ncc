@@ -69,23 +69,6 @@ let syncOrchestrator = null;
 let syncQueueManager = null;
 let syncMonitor = null;
 let realtimeSyncUnsubscribe = null;
-let syncQueueStatusInterval = null;
-
-const syncMetrics = ref({
-  totalSyncs: 0,
-  successfulSyncs: 0,
-  failedSyncs: 0,
-  successRate: 0,
-  averageSyncTime: 0,
-  lastSyncTime: null,
-});
-
-const syncQueueStatus = ref({
-  pending: 0,
-  processing: 0,
-  failed: 0,
-  completed: 0,
-});
 
 // ---------- Enhanced Sync System Initialization ----------
 function initializeEnhancedSync() {
@@ -136,18 +119,11 @@ function initializeEnhancedSync() {
       },
       onSyncComplete: (results) => {
         console.log('[Admin] Real-time sync completed:', results);
-        updateSyncMetrics(results);
       },
       onSyncError: (error) => {
         console.error('[Admin] Real-time sync error:', error);
       },
     });
-
-    // Update queue status periodically
-    // BUG FIX: prima l'interval non veniva mai salvato in una variabile,
-    // quindi non poteva essere ripulito da cleanupEnhancedSync() — ogni
-    // re-init ne aggiungeva uno nuovo per sempre (memory/interval leak).
-    syncQueueStatusInterval = setInterval(updateSyncQueueStatus, 5000);
 
     console.log('[Admin] Enhanced sync system initialized successfully');
   } catch (error) {
@@ -155,50 +131,10 @@ function initializeEnhancedSync() {
   }
 }
 
-function updateSyncMetrics(results) {
-  if (!syncMonitor) return;
-
-  const totalDuration = results.reduce((sum, r) => {
-    if (r.value && r.value.duration) return sum + r.value.duration;
-    return sum;
-  }, 0);
-
-  const successfulCount = results.filter(r => r.status === 'fulfilled').length;
-  const failedCount = results.filter(r => r.status === 'rejected').length;
-
-  syncMonitor.recordSync(totalDuration / results.length, successfulCount > failedCount);
-
-  const metrics = syncMonitor.getMetrics();
-  syncMetrics.value = {
-    totalSyncs: metrics.totalSyncs,
-    successfulSyncs: metrics.successfulSyncs,
-    failedSyncs: metrics.failedSyncs,
-    successRate: metrics.successRate,
-    averageSyncTime: metrics.averageSyncTime,
-    lastSyncTime: metrics.lastSyncTime,
-  };
-}
-
-function updateSyncQueueStatus() {
-  if (!syncQueueManager) return;
-
-  const queue = syncQueueManager.getQueue();
-  syncQueueStatus.value = {
-    pending: queue.filter(op => op.status === 'pending').length,
-    processing: queue.filter(op => op.status === 'processing').length,
-    failed: queue.filter(op => op.status === 'failed').length,
-    completed: queue.filter(op => op.status === 'completed').length,
-  };
-}
-
 function cleanupEnhancedSync() {
   if (realtimeSyncUnsubscribe) {
     realtimeSyncUnsubscribe();
     realtimeSyncUnsubscribe = null;
-  }
-  if (syncQueueStatusInterval) {
-    clearInterval(syncQueueStatusInterval);
-    syncQueueStatusInterval = null;
   }
   if (syncOrchestrator) {
     syncOrchestrator.cleanup();
@@ -692,10 +628,6 @@ const WA_CONFIRM_TEXT = {
     thanks: 'شكرًا لاختيارك Grifone NCC!',
   },
 };
-
-// رابط الموقع العام — يُستخدم لبناء رابط التعديل السرّي المُرسَل للعميل.
-// TODO: عدّل القيمة لو الدومين يتغيّر مستقبلًا.
-const EDIT_BASE_URL = 'https://amedeo-ncc.vercel.app';
 
 let unsubFleetAuth = null;
 onMounted(() => {

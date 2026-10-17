@@ -11,3 +11,5 @@ sync-pending-test.js
 .vercel
 .env*
 site-key-b64.txt
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

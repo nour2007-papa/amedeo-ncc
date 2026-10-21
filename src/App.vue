@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue';
+import { ref, reactive, computed, nextTick, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue';
 import griffinLogoSmall from './assets/griffin-logo.webp';
 import grifoneHero from './assets/griffin-hero.webp';
 import { dict } from './i18n.js';
@@ -247,13 +247,32 @@ const waDefaultLink = computed(() => `https://wa.me/${WHATSAPP_NUMBER}?text=${en
    Privacy modal + cookie banner
    ========================================================= */
 const privacyOpen = ref(false);
+const privacyBoxEl = ref(null);
+const privacyCloseBtn = ref(null);
+let privacyOpener = null; // elemento che ha aperto il modal (per ridare il focus alla chiusura)
 function openPrivacyModal() {
+  privacyOpener = document.activeElement;
   privacyOpen.value = true;
   document.body.style.overflow = 'hidden';
+  nextTick(() => privacyCloseBtn.value && privacyCloseBtn.value.focus());
 }
 function closePrivacyModal() {
   privacyOpen.value = false;
   document.body.style.overflow = '';
+  if (privacyOpener && typeof privacyOpener.focus === 'function' && document.contains(privacyOpener)) {
+    privacyOpener.focus();
+  }
+  privacyOpener = null;
+}
+// Escape chiude; Tab/Shift+Tab restano dentro il modal (focus trap)
+function onPrivacyKeydown(e) {
+  if (e.key === 'Escape') { e.preventDefault(); closePrivacyModal(); return; }
+  if (e.key !== 'Tab' || !privacyBoxEl.value) return;
+  const f = privacyBoxEl.value.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (!f.length) { e.preventDefault(); return; }
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 // cookie_text (i18n) بيحتوي على رابط <a class="privacy-modal-link"> جوه v-html.
 // بدل onclick خام (كان بيتصادم مع CSP script-src)، بنستخدم event delegation:
@@ -317,6 +336,14 @@ const vReveal = {
 };
 
 const navOpen = ref(false);
+
+/* Etichette ARIA nella lingua del sito (solo dove non c'è testo visibile da cui derivare il nome) */
+const A11Y = {
+  it: { navMain: 'Navigazione principale', menuOpen: 'Apri menu', menuClose: 'Chiudi menu', privacyClose: 'Chiudi la finestra privacy', cookieRegion: 'Informativa cookie', waFab: 'Scrivici su WhatsApp' },
+  en: { navMain: 'Main navigation', menuOpen: 'Open menu', menuClose: 'Close menu', privacyClose: 'Close privacy window', cookieRegion: 'Cookie notice', waFab: 'Message us on WhatsApp' },
+  ar: { navMain: 'التنقل الرئيسي', menuOpen: 'فتح القائمة', menuClose: 'إغلاق القائمة', privacyClose: 'إغلاق نافذة الخصوصية', cookieRegion: 'إشعار ملفات تعريف الارتباط', waFab: 'راسلنا على واتساب' },
+};
+const a11y = computed(() => A11Y[currentLang.value] || A11Y.it);
 
 /* =========================================================
    Fix: on some Android browsers (notably MIUI's built-in browser
@@ -459,17 +486,17 @@ onUnmounted(() => {
 <noscript><div class="noscript-banner">Questo sito richiede JavaScript per funzionare correttamente. Abilita JavaScript nel tuo browser.</div></noscript>
 
 <header role="banner">
-  <nav class="wrap" role="navigation" aria-label="Navigazione principale">
+  <nav class="wrap" role="navigation" :aria-label="a11y.navMain">
     <div class="logo">
       <img :src="griffinLogoSmall" alt="Grifone NCC - Logo autista privato Milano" width="101" height="120" class="logo-img" />
       <span class="logo-text">GRIFONE <b>NCC</b></span>
     </div>
-    <div class="nav-links" :class="{ active: navOpen }">
-      <a href="#servizi" @click="navOpen=false" aria-label="Vai alla sezione Servizi">{{ t.nav_services }}</a>
-      <a href="#flotta" @click="navOpen=false" aria-label="Vai alla sezione Flotta">{{ t.nav_fleet }}</a>
-      <a href="#video" @click="navOpen=false" aria-label="Vai alla sezione Video">{{ t.nav_video }}</a>
-      <a href="#viaggi" @click="navOpen=false" aria-label="Vai alla sezione Viaggi">{{ t.nav_trips }}</a>
-      <a href="#contatti" @click="navOpen=false" aria-label="Vai alla sezione Contatti">{{ t.nav_contact }}</a>
+    <div class="nav-links" id="nav-links" :class="{ active: navOpen }">
+      <a href="#servizi" @click="navOpen=false">{{ t.nav_services }}</a>
+      <a href="#flotta" @click="navOpen=false">{{ t.nav_fleet }}</a>
+      <a href="#video" @click="navOpen=false">{{ t.nav_video }}</a>
+      <a href="#viaggi" @click="navOpen=false">{{ t.nav_trips }}</a>
+      <a href="#contatti" @click="navOpen=false">{{ t.nav_contact }}</a>
     </div>
     <div class="nav-actions">
       <div class="lang-switch" role="group" aria-label="Selezione lingua / Language selection / اختيار اللغة">
@@ -477,7 +504,7 @@ onUnmounted(() => {
                 :class="{ active: currentLang===l }" :aria-pressed="currentLang===l"
                 @click="setLang(l)">{{ l.toUpperCase() }}</button>
       </div>
-      <button class="menu-toggle" aria-label="Apri menu mobile" @click="navOpen = !navOpen">☰</button>
+      <button class="menu-toggle" type="button" :aria-label="navOpen ? a11y.menuClose : a11y.menuOpen" :aria-expanded="navOpen" aria-controls="nav-links" @click="navOpen = !navOpen">☰</button>
     </div>
   </nav>
 </header>
@@ -584,7 +611,7 @@ onUnmounted(() => {
         <div class="code">{{ c.code }}</div>
         <h4>{{ c.name }}</h4>
         <p>{{ t[c.descKey] }}</p>
-        <button class="car-btn" @click="selectCar(c.name)" :aria-label="`Prenota ${c.name}`">{{ t.btn_book_car }}</button>
+        <button class="car-btn" @click="selectCar(c.name)" :aria-label="`${t.btn_book_car}: ${c.name}`">{{ t.btn_book_car }}</button>
       </div>
     </article>
   </div>
@@ -618,7 +645,7 @@ onUnmounted(() => {
         <div class="code">{{ trip.code }}</div>
         <h4>{{ t[trip.titleKey] }}</h4>
         <p>{{ t[trip.descKey] }}</p>
-        <button class="car-btn" @click="onCardAction(trip)" :aria-label="`Richiedi viaggio verso ${trip.name || t[trip.titleKey]}`">
+        <button class="car-btn" @click="onCardAction(trip)" :aria-label="`${trip.kind === 'otherItaly' ? t.btn_other_italy : (trip.kind === 'custom' ? t.btn_custom_trip : t.btn_book_trip)}: ${trip.name || t[trip.titleKey]}`">
           {{ trip.kind === 'otherItaly' ? t.btn_other_italy : (trip.kind === 'custom' ? t.btn_custom_trip : t.btn_book_trip) }}
         </button>
       </div>
@@ -700,9 +727,9 @@ onUnmounted(() => {
     <div class="footer-col">
       <h4>{{ t.foot_legal }}</h4>
       <nav aria-label="Link legali">
-        <a href="#" @click.prevent="openPrivacyModal" aria-label="Apri informativa privacy">{{ t.foot_privacy }}</a>
-        <a href="#" @click.prevent="openPrivacyModal" aria-label="Apri informativa cookie">{{ t.foot_cookies }}</a>
-        <a href="#" @click.prevent="openPrivacyModal" aria-label="Apri termini e condizioni">{{ t.foot_terms }}</a>
+        <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_privacy }}</a>
+        <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_cookies }}</a>
+        <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_terms }}</a>
       </nav>
     </div>
     <div class="footer-col">
@@ -733,14 +760,14 @@ onUnmounted(() => {
 </footer>
 </main>
 
-<a class="whatsapp-fab" :href="waDefaultLink" target="_blank" rel="noopener" aria-label="Scrivici su WhatsApp">
+<a class="whatsapp-fab" :href="waDefaultLink" target="_blank" rel="noopener" :aria-label="a11y.waFab">
   <svg viewBox="0 0 32 32" fill="white" aria-hidden="true"><path d="M16.001 3C9.373 3 4 8.373 4 15c0 2.386.703 4.61 1.912 6.478L4 29l7.702-1.874A11.94 11.94 0 0016.001 27C22.629 27 28 21.627 28 15S22.629 3 16.001 3zm0 21.818a9.77 9.77 0 01-4.98-1.362l-.357-.212-4.573 1.112 1.135-4.457-.233-.366A9.78 9.78 0 016.182 15c0-5.42 4.4-9.818 9.819-9.818 5.418 0 9.818 4.398 9.818 9.818 0 5.419-4.4 9.818-9.818 9.818zm5.386-7.35c-.295-.148-1.746-.862-2.017-.96-.271-.099-.469-.148-.667.148-.197.295-.764.96-.937 1.157-.172.198-.345.222-.64.074-.295-.148-1.246-.459-2.373-1.463-.877-.782-1.47-1.748-1.642-2.043-.172-.295-.018-.454.13-.601.134-.133.296-.345.444-.518.148-.172.197-.295.296-.492.099-.198.05-.37-.025-.518-.074-.148-.667-1.606-.914-2.2-.24-.579-.485-.5-.667-.51-.172-.008-.37-.01-.568-.01a1.09 1.09 0 00-.79.37c-.271.296-1.036 1.013-1.036 2.47 0 1.457 1.06 2.865 1.208 3.063.148.198 2.086 3.186 5.053 4.468.706.305 1.256.487 1.685.623.708.225 1.352.193 1.861.117.568-.085 1.746-.714 1.993-1.403.246-.69.246-1.28.172-1.403-.074-.123-.271-.197-.567-.345z"/></svg>
 </a>
 
 <!-- PRIVACY MODAL -->
-<div class="modal-overlay" :class="{ open: privacyOpen }" @click.self="closePrivacyModal" role="dialog" aria-modal="true" aria-labelledby="privacy-title">
-  <div class="modal-box" role="document">
-    <button class="modal-close" @click="closePrivacyModal" aria-label="Chiudi la finestra privacy">&#10005;</button>
+<div class="modal-overlay" :class="{ open: privacyOpen }" @click.self="closePrivacyModal" @keydown="onPrivacyKeydown" role="dialog" aria-modal="true" aria-labelledby="privacy-title">
+  <div class="modal-box" role="document" ref="privacyBoxEl">
+    <button class="modal-close" type="button" ref="privacyCloseBtn" @click="closePrivacyModal" :aria-label="a11y.privacyClose">&#10005;</button>
     <h3 id="privacy-title">{{ t.privacy_title }}</h3>
     <p>{{ t.privacy_p1 }}</p>
     <p>{{ t.privacy_p2 }}</p>
@@ -755,11 +782,11 @@ onUnmounted(() => {
 </div>
 
 <!-- COOKIE BANNER -->
-<div class="cookie-banner" :class="{ visible: cookieVisible }" role="alert" aria-live="polite">
+<div class="cookie-banner" :class="{ visible: cookieVisible }" role="region" :aria-label="a11y.cookieRegion">
   <span v-html="t.cookie_text" @click="handleCookieTextClick"></span>
   <div class="cookie-btns">
-    <button @click="acceptCookies" aria-label="Accetta i cookie">{{ t.cookie_accept }}</button>
-    <button @click="declineCookies" aria-label="Rifiuta i cookie non necessari">{{ t.cookie_dismiss }}</button>
+    <button @click="acceptCookies">{{ t.cookie_accept }}</button>
+    <button @click="declineCookies">{{ t.cookie_dismiss }}</button>
   </div>
 </div>
 </template>
@@ -916,7 +943,7 @@ onUnmounted(() => {
     padding:12px 14px;font-family:inherit;font-size:0.9rem;width:100%;
   }
   html[dir="rtl"] .search-field input,html[dir="rtl"] .search-field select{font-family:'Tajawal',sans-serif;}
-  .search-field input:focus,.search-field select:focus{outline:none;border-color:var(--brass);}
+  .search-field input:focus,.search-field select:focus{border-color:var(--brass);}
   .search-box .btn{white-space:nowrap;align-self:end;}
   @media(max-width:900px){
     .search-grid{grid-template-columns:1fr 1fr;}
@@ -956,7 +983,7 @@ onUnmounted(() => {
   .stub p{color:var(--steel);font-size:0.9rem;margin-bottom:26px;}
   .stub-foot{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--steel);padding-top:12px;}
   .stub-foot b{color:var(--paper);}
-  .stub-airport-links{display:flex;gap:10px;flex-wrap:wrap;}
+  .stub-airport-links{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start;padding:0;max-width:none;margin:0;}
   .stub-airport-links a{color:var(--steel);text-decoration:underline;text-underline-offset:2px;transition:color .2s;}
   .stub-airport-links a:hover{color:var(--brass-bright);}
   .stub-btn{
@@ -999,7 +1026,7 @@ onUnmounted(() => {
     background:var(--surface);border:1px solid var(--line);color:var(--paper);
     padding:14px 16px;font-family:'Work Sans',sans-serif;font-size:0.92rem;
   }
-  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brass);}
+  input:focus,select:focus,textarea:focus{border-color:var(--brass);}
   textarea{min-height:100px;resize:vertical;}
   .gdpr-box{display:flex;align-items:flex-start;gap:10px;font-size:0.78rem;color:var(--steel);margin-top:2px;}
   .gdpr-box input[type="checkbox"]{accent-color:var(--brass);margin-top:3px;cursor:pointer;flex-shrink:0;}
@@ -1109,9 +1136,10 @@ onUnmounted(() => {
     background:var(--surface);border-top:1px solid var(--line);
     padding:18px 28px;display:flex;align-items:center;justify-content:space-between;
     gap:16px;font-size:0.82rem;color:var(--steel);
-    transform:translateY(100%);transition:transform .4s cubic-bezier(.2,1,.3,1);
+    transform:translateY(100%);visibility:hidden;
+    transition:transform .4s cubic-bezier(.2,1,.3,1),visibility 0s linear .4s;
   }
-  .cookie-banner.visible{transform:translateY(0);}
+  .cookie-banner.visible{transform:translateY(0);visibility:visible;transition:transform .4s cubic-bezier(.2,1,.3,1),visibility 0s;}
   .cookie-banner a{color:var(--brass-bright);text-decoration:underline;}
   .cookie-btns{display:flex;gap:10px;flex-shrink:0;}
   .cookie-btns button{padding:10px 20px;font-size:0.78rem;cursor:pointer;border:1px solid var(--line);background:none;color:var(--paper);transition:all .2s;letter-spacing:0.03em;}
@@ -1132,14 +1160,14 @@ onUnmounted(() => {
     max-height:80vh;overflow-y:auto;padding:40px 36px;position:relative;
   }
   .modal-close{
-    position:absolute;top:10px;right:12px;background:none;border:none;
+    position:absolute;top:10px;inset-inline-end:12px;background:none;border:none;
     color:var(--steel);font-size:1.4rem;cursor:pointer;transition:color .2s;
     width:44px;height:44px;display:flex;align-items:center;justify-content:center;
   }
   .modal-close:hover{color:var(--paper);}
   .modal-box h3{font-family:'Fraunces',serif;font-size:1.4rem;margin-bottom:18px;}
   .modal-box p,.modal-box li{color:var(--steel);font-size:0.88rem;line-height:1.7;margin-bottom:12px;}
-  .modal-box ul{padding-left:20px;margin-bottom:12px;}
+  .modal-box ul{padding-inline-start:20px;margin-bottom:12px;}
 
   /* WORLD CLOCKS TICKER — stesso pattern del board aeroporti in header */
   .clocks-ticker{

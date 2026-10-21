@@ -339,9 +339,9 @@ const navOpen = ref(false);
 
 /* Etichette ARIA nella lingua del sito (solo dove non c'è testo visibile da cui derivare il nome) */
 const A11Y = {
-  it: { navMain: 'Navigazione principale', menuOpen: 'Apri menu', menuClose: 'Chiudi menu', privacyClose: 'Chiudi la finestra privacy', cookieRegion: 'Informativa cookie', waFab: 'Scrivici su WhatsApp' },
-  en: { navMain: 'Main navigation', menuOpen: 'Open menu', menuClose: 'Close menu', privacyClose: 'Close privacy window', cookieRegion: 'Cookie notice', waFab: 'Message us on WhatsApp' },
-  ar: { navMain: 'التنقل الرئيسي', menuOpen: 'فتح القائمة', menuClose: 'إغلاق القائمة', privacyClose: 'إغلاق نافذة الخصوصية', cookieRegion: 'إشعار ملفات تعريف الارتباط', waFab: 'راسلنا على واتساب' },
+  it: { navMain: 'Navigazione principale', menuOpen: 'Apri menu', menuClose: 'Chiudi menu', privacyClose: 'Chiudi la finestra privacy', cookieRegion: 'Informativa cookie', waFab: 'Scrivici su WhatsApp', airports: 'Transfer aeroporti', video: 'Video promozionale Grifone NCC - Servizio autista privato Milano', call: 'Chiama', email: 'Invia email', payments: 'Metodi di pagamento accettati', navFooter: 'Navigazione footer', legal: 'Link legali', directContacts: 'Contatti diretti', worldClocks: 'Orari nel mondo' },
+  en: { navMain: 'Main navigation', menuOpen: 'Open menu', menuClose: 'Close menu', privacyClose: 'Close privacy window', cookieRegion: 'Cookie notice', waFab: 'Message us on WhatsApp', airports: 'Airport transfers', video: 'Grifone NCC promotional video - private chauffeur service in Milan', call: 'Call', email: 'Send email', payments: 'Accepted payment methods', navFooter: 'Footer navigation', legal: 'Legal links', directContacts: 'Direct contacts', worldClocks: 'World clocks' },
+  ar: { navMain: 'التنقل الرئيسي', menuOpen: 'فتح القائمة', menuClose: 'إغلاق القائمة', privacyClose: 'إغلاق نافذة الخصوصية', cookieRegion: 'إشعار ملفات تعريف الارتباط', waFab: 'راسلنا على واتساب', airports: 'تنقلات المطارات', video: 'فيديو ترويجي لـ Grifone NCC - خدمة سائق خاص في ميلانو', call: 'اتصل', email: 'أرسل بريدًا إلكترونيًا', payments: 'طرق الدفع المقبولة', navFooter: 'التنقل في التذييل', legal: 'الروابط القانونية', directContacts: 'جهات الاتصال المباشرة', worldClocks: 'ساعات العالم' },
 };
 const a11y = computed(() => A11Y[currentLang.value] || A11Y.it);
 
@@ -567,7 +567,7 @@ onUnmounted(() => {
   </div>
 </section>
 
-<section class="stats wrap" aria-label="Statistiche servizio Grifone NCC">
+<section class="stats wrap">
   <div class="stat"><b>24/7</b><span>{{ t.stat1 }}</span></div>
   <div class="stat"><b>LOMBARDIA → ITA/EU</b><span>{{ t.stat2 }}</span></div>
   <div class="stat"><b>&lt;8 min</b><span>{{ t.stat3 }}</span></div>
@@ -579,14 +579,14 @@ onUnmounted(() => {
     <h2 id="services-title">{{ t.services_title }}</h2>
     <div class="tag mono">{{ t.services_tag }}</div>
   </div>
-  <div class="services" role="list" aria-label="Lista servizi NCC">
+  <div class="services" role="list">
     <article class="stub reveal" v-reveal v-for="(s, i) in services" :key="s.code" role="listitem">
       <div class="stub-code">{{ s.code }}</div>
       <h3>{{ t[s.titleKey] }}</h3>
       <p>{{ t[s.descKey] }}</p>
       <div class="stub-foot">
         <span v-if="!s.airport">{{ s.tag1 }}</span>
-        <nav v-else class="stub-airport-links" aria-label="Transfer aeroporti">
+        <nav v-else class="stub-airport-links" :aria-label="a11y.airports">
           <a href="/aeroporti/malpensa">{{ airportLinksLabel.malpensa }}</a>
           <a href="/aeroporti/linate">{{ airportLinksLabel.linate }}</a>
           <a href="/aeroporti/bergamo">{{ airportLinksLabel.bergamo }}</a>
@@ -603,7 +603,7 @@ onUnmounted(() => {
     <h2 id="fleet-title">{{ t.fleet_title }}</h2>
     <div class="tag mono">{{ t.fleet_tag }}</div>
   </div>
-  <div class="fleet" role="list" aria-label="Flotta Mercedes premium">
+  <div class="fleet" role="list">
     <article class="car reveal" v-reveal v-for="c in fleet" :key="c.code" role="listitem">
       <img v-if="!isImgBroken(c.photo)" class="car-photo" :src="c.photo" :srcset="imgSrcset(c.photo)" :sizes="CARD_IMG_SIZES" :alt="c.alt" width="380" height="200" loading="lazy" decoding="async" @error="imgFallback">
       <div v-else class="car-photo broken" role="img" :aria-label="t.img_unavailable || 'IMAGE NOT AVAILABLE'">{{ t.img_unavailable || 'IMAGE NOT AVAILABLE' }}</div>
@@ -626,7 +626,7 @@ onUnmounted(() => {
     <!-- شلنا poster="grifoneHero": كانت بتحمّل صورة الهيرو الكاملة (120.5 KiB) بس عشان
          تبقى بوستر الفيديو، ده هدر واضح ظهر في تقرير PageSpeed. بدون poster + preload="none"
          الفيديو مش بيطلب أي بايت من الشبكة لحد ما المستخدم يدوس Play. -->
-    <video class="promo-video" controls muted playsinline preload="none" aria-label="Video promozionale Grifone NCC - Servizio autista privato Milano">
+    <video class="promo-video" controls muted playsinline preload="none" :aria-label="a11y.video">
       <source src="https://res.cloudinary.com/nfurbx69/video/upload/v1786929691/video5769265625520152920.mp4" type="video/mp4">
     </video>
   </div>
@@ -637,7 +637,7 @@ onUnmounted(() => {
     <h2 id="trips-title">{{ t.trips_title }}</h2>
     <div class="tag mono">{{ t.trips_tag }}</div>
   </div>
-  <div class="fleet" role="list" aria-label="Viaggi consigliati con autista privato">
+  <div class="fleet" role="list">
     <article class="car reveal" v-reveal v-for="trip in trips" :key="trip.code" role="listitem">
       <img v-if="!isImgBroken(tripPhoto(trip))" class="car-photo" :src="tripPhoto(trip)" :srcset="imgSrcset(tripPhoto(trip))" :sizes="CARD_IMG_SIZES" :alt="trip.alt || t[trip.titleKey]" width="380" height="200" loading="lazy" decoding="async" @error="imgFallback">
       <div v-else class="car-photo broken" role="img" :aria-label="t.img_unavailable || 'IMAGE NOT AVAILABLE'">{{ t.img_unavailable || 'IMAGE NOT AVAILABLE' }}</div>
@@ -665,15 +665,15 @@ onUnmounted(() => {
     <div class="contact-info">
       <div class="info-line">
         <span>{{ t.i_phone }}</span>
-        <span><a :href="`tel:+${WHATSAPP_NUMBER}`" class="contact-link" aria-label="Chiama il numero +39 352 000 3122">+39 352 000 3122</a></span>
+        <span><a :href="`tel:+${WHATSAPP_NUMBER}`" class="contact-link" :aria-label="`${a11y.call}: +39 352 000 3122`">+39 352 000 3122</a></span>
       </div>
       <div class="info-line">
         <span>{{ t.i_whatsapp }}</span>
-        <span><a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" class="contact-link" aria-label="Scrivi su WhatsApp al numero +39 352 000 3122">+39 352 000 3122</a></span>
+        <span><a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" class="contact-link" :aria-label="`${a11y.waFab}: +39 352 000 3122`">+39 352 000 3122</a></span>
       </div>
       <div class="info-line">
         <span>{{ t.i_mail }}</span>
-        <span><a href="mailto:amedeo018@libero.it" class="contact-link" aria-label="Invia email a amedeo018@libero.it">amedeo018@libero.it</a></span>
+        <span><a href="mailto:amedeo018@libero.it" class="contact-link" :aria-label="`${a11y.email}: amedeo018@libero.it`">amedeo018@libero.it</a></span>
       </div>
       <div class="info-line">
         <span>{{ t.i_area }}</span>
@@ -684,7 +684,7 @@ onUnmounted(() => {
         <span>24/7</span>
       </div>
 
-      <div class="payments-box" role="region" aria-label="Metodi di pagamento accettati">
+      <div class="payments-box" role="region" :aria-label="a11y.payments">
         <div class="payments-title">{{ t.pay_title }}</div>
         <div class="payment-badges" role="list">
           <div class="pay-card" role="listitem">
@@ -716,7 +716,7 @@ onUnmounted(() => {
   <div class="footer-inner">
     <div class="footer-col">
       <h4>{{ t.foot_nav }}</h4>
-      <nav aria-label="Navigazione footer">
+      <nav :aria-label="a11y.navFooter">
         <a href="#servizi">{{ t.nav_services }}</a>
         <a href="#flotta">{{ t.nav_fleet }}</a>
         <a href="#video">{{ t.nav_video }}</a>
@@ -726,7 +726,7 @@ onUnmounted(() => {
     </div>
     <div class="footer-col">
       <h4>{{ t.foot_legal }}</h4>
-      <nav aria-label="Link legali">
+      <nav :aria-label="a11y.legal">
         <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_privacy }}</a>
         <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_cookies }}</a>
         <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_terms }}</a>
@@ -734,15 +734,15 @@ onUnmounted(() => {
     </div>
     <div class="footer-col">
       <h4>{{ t.foot_contact_title }}</h4>
-      <nav aria-label="Contatti diretti">
-        <a :href="`tel:+${WHATSAPP_NUMBER}`" aria-label="Chiama il numero +39 352 000 3122">+39 352 000 3122</a>
-        <a href="mailto:amedeo018@libero.it" aria-label="Invia email a amedeo018@libero.it">amedeo018@libero.it</a>
-        <a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" aria-label="Scrivi su WhatsApp">WhatsApp</a>
+      <nav :aria-label="a11y.directContacts">
+        <a :href="`tel:+${WHATSAPP_NUMBER}`" :aria-label="`${a11y.call}: +39 352 000 3122`">+39 352 000 3122</a>
+        <a href="mailto:amedeo018@libero.it" :aria-label="`${a11y.email}: amedeo018@libero.it`">amedeo018@libero.it</a>
+        <a :href="`https://wa.me/${WHATSAPP_NUMBER}`" target="_blank" rel="noopener" :aria-label="a11y.waFab">WhatsApp</a>
       </nav>
     </div>
   </div>
 
-  <div class="clocks-ticker" role="region" aria-label="Orari nel mondo">
+  <div class="clocks-ticker" role="region" :aria-label="a11y.worldClocks">
     <div class="clocks-ticker-inner">
       <span v-for="(c, i) in tickerClocks" :key="i" class="clock-ticker-item" :class="{ 'is-base': c.base }">
         <span class="clock-ticker-dot" v-if="c.base"></span>

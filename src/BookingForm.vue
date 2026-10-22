@@ -16,14 +16,19 @@
    nuovi campi (tipoServizio, zona, dataOra ISO, volo, passeggeri,
    bagagli) con gli STESSI id usati in bookingConstants.js del
    pannello fleet, così il mirror futuro non richiede mapping.
+
+   Prima dell'invio, se `db` non è ancora pronto (Firebase è caricato
+   in lazy dal sito) il form attende fino a `dbWaitMs` millisecondi.
+   Per siti senza Firestore passare :db-wait-ms="0".
    ========================================================= */
-import { reactive, ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { reactive, ref, computed, watch, nextTick, getCurrentInstance, onMounted, onUnmounted } from 'vue';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { sanitizeInput, validateName, validatePhone, validateDate, validateFlightNumber, validateNumberPeople, validateNumberBags } from './validation.js';
 import { SyncQueueManager, generateSyncId } from './sync-utils.js';
 
 const props = defineProps({
   db: { type: Object, default: null },           // istanza Firestore del sito ospitante (opzionale)
+  dbWaitMs: { type: Number, default: 3000 },       // attesa massima di `db` all'invio (0 = non attendere)
   whatsappNumber: { type: String, required: true }, // es. '393520003122'
   lang: { type: String, default: 'ar' },           // 'ar' | 'it' | 'en'
   brandName: { type: String, default: 'Grifone NCC' },
@@ -35,6 +40,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['sent']);
+
+// Prefisso univoco per gli id (label for / aria-describedby), valido anche con più istanze nella pagina.
+const uid = `bf${getCurrentInstance()?.uid ?? 0}`;
 
 /* ---------- Stessi id/label del pannello fleet (bookingConstants.js) ---------- */
 const TIPI_SERVIZIO = [
@@ -68,48 +76,48 @@ const UI = {
     lingua: 'اللغة', tipoServizio: 'نوع الخدمة', dataOra: 'تاريخ ووقت الاستلام',
     zona: 'نقطة الاستلام', destinazione: 'الوجهة', volo: 'رقم الرحلة',
     passeggeri: 'الركاب', bagagli: 'الحقائب', gdpr: 'أوافق على معالجة بياناتي لغرض الرد على طلب الحجز',
-    submit: 'إرسال عبر واتساب', success: 'تم إرسال الطلب بنجاح ✅',
-    country: 'رمز الدولة', search: 'ابحث عن دولة', noResults: 'لا نتائج',
-    errName: 'أدخل اسمًا صحيحًا (حرفان على الأقل).',
-    errPhone: 'أدخل رقم هاتف صحيحًا.',
-    errDate: 'يجب أن يكون التاريخ والوقت في المستقبل.',
-    errFlight: 'رقم الرحلة غير صحيح (مثال: AZ1234).',
-    errPeople: 'عدد الركاب يجب أن يكون بين 1 و20.',
-    errBags: 'عدد الحقائب يجب أن يكون بين 0 و20.',
-    errGdpr: 'الموافقة مطلوبة لإرسال الطلب.',
-    errSave: 'تعذّر حفظ الحجز في النظام، لكن رسالتك ستُرسل عبر واتساب.',
+    submit: 'إرسال عبر واتساب', sending: 'جارٍ الإرسال...', success: 'تم إرسال الطلب بنجاح ✅',
+    country: 'رمز الدولة', countrySearch: 'ابحث عن دولة', noResults: 'لا توجد نتائج',
+    errors: {
+      name: 'أدخل اسمًا صحيحًا (حرفان على الأقل).',
+      phone: 'أدخل رقم هاتف صحيحًا.',
+      dataOra: 'يجب أن يكون موعد الاستلام في المستقبل.',
+      volo: 'رقم الرحلة غير صحيح (مثال: AZ1234).',
+      passeggeri: 'أدخل عدد ركاب بين 1 و20.',
+      bagagli: 'أدخل عدد حقائب بين 0 و20.',
+    },
   },
   it: {
     title: 'Nuova Prenotazione', titolo: 'Titolo', name: 'Nome cliente', whatsapp: 'Numero WhatsApp',
     lingua: 'Lingua', tipoServizio: 'Tipo servizio', dataOra: 'Data e ora ritiro',
     zona: 'Punto di ritiro', destinazione: 'Destinazione', volo: 'Numero volo',
     passeggeri: 'Passeggeri', bagagli: 'Bagagli', gdpr: 'Acconsento al trattamento dei dati per rispondere alla richiesta di prenotazione',
-    submit: 'Invia su WhatsApp', success: 'Richiesta inviata con successo ✅',
-    country: 'Prefisso internazionale', search: 'Cerca paese', noResults: 'Nessun risultato',
-    errName: 'Inserisci un nome valido (minimo 2 caratteri).',
-    errPhone: 'Inserisci un numero di telefono valido.',
-    errDate: 'La data e l\u2019ora devono essere nel futuro.',
-    errFlight: 'Numero di volo non valido (es. AZ1234).',
-    errPeople: 'I passeggeri devono essere tra 1 e 20.',
-    errBags: 'I bagagli devono essere tra 0 e 20.',
-    errGdpr: 'Il consenso è necessario per inviare la richiesta.',
-    errSave: 'Impossibile salvare la prenotazione, ma il messaggio verrà inviato su WhatsApp.',
+    submit: 'Invia su WhatsApp', sending: 'Invio in corso...', success: 'Richiesta inviata con successo ✅',
+    country: 'Prefisso internazionale', countrySearch: 'Cerca un paese', noResults: 'Nessun risultato',
+    errors: {
+      name: 'Inserisci un nome valido (minimo 2 caratteri).',
+      phone: 'Inserisci un numero di telefono valido.',
+      dataOra: 'La data di ritiro deve essere nel futuro.',
+      volo: 'Il numero di volo non è valido (es. AZ1234).',
+      passeggeri: 'Inserisci un numero di passeggeri tra 1 e 20.',
+      bagagli: 'Inserisci un numero di bagagli tra 0 e 20.',
+    },
   },
   en: {
     title: 'New Booking', titolo: 'Title', name: 'Client name', whatsapp: 'WhatsApp number',
     lingua: 'Language', tipoServizio: 'Service type', dataOra: 'Pickup date & time',
     zona: 'Pickup point', destinazione: 'Destination', volo: 'Flight number',
     passeggeri: 'Passengers', bagagli: 'Luggage', gdpr: 'I agree to the processing of my data to reply to this booking request',
-    submit: 'Send via WhatsApp', success: 'Request sent successfully ✅',
-    country: 'Country code', search: 'Search country', noResults: 'No results',
-    errName: 'Enter a valid name (at least 2 characters).',
-    errPhone: 'Enter a valid phone number.',
-    errDate: 'The date and time must be in the future.',
-    errFlight: 'Invalid flight number (e.g. AZ1234).',
-    errPeople: 'Passengers must be between 1 and 20.',
-    errBags: 'Luggage must be between 0 and 20.',
-    errGdpr: 'Consent is required to send the request.',
-    errSave: 'We could not save the booking, but your message will still be sent via WhatsApp.',
+    submit: 'Send via WhatsApp', sending: 'Sending...', success: 'Request sent successfully ✅',
+    country: 'Country code', countrySearch: 'Search for a country', noResults: 'No results',
+    errors: {
+      name: 'Enter a valid name (at least 2 characters).',
+      phone: 'Enter a valid phone number.',
+      dataOra: 'The pickup date must be in the future.',
+      volo: 'The flight number is not valid (e.g. AZ1234).',
+      passeggeri: 'Enter a number of passengers between 1 and 20.',
+      bagagli: 'Enter a number of bags between 0 and 20.',
+    },
   },
 };
 const t = computed(() => UI[props.lang] || UI.ar);
@@ -319,10 +327,6 @@ const countryCodes = [
 ];
 
 
-/* ---------- Id univoci per label/aria (più istanze nella stessa pagina) ---------- */
-const uid = `bf-${Math.random().toString(36).slice(2, 8)}`;
-const fid = (n) => `${uid}-${n}`;
-
 /* ---------- Stato del form ---------- */
 const form = reactive({
   name: '',
@@ -343,22 +347,27 @@ const form = reactive({
 const note = ref(''); // contesto automatico, non un campo del form
 const showSuccess = ref(false);
 const sending = ref(false);
-const formError = ref('');
-// L'ordine delle chiavi = ordine dei campi nel DOM (serve per il focus sul primo errore)
-const errors = reactive({ name: '', phone: '', dataOra: '', volo: '', passeggeri: '', bagagli: '', gdpr: '' });
-const clearError = (k) => { errors[k] = ''; };
+const formRef = ref(null);
+
+/* ---------- Errori inline (sostituiscono gli alert del browser) ---------- */
+const emptyErrors = () => ({ name: '', phone: '', dataOra: '', volo: '', passeggeri: '', bagagli: '' });
+const errors = reactive(emptyErrors());
+const errId = (key) => `${uid}-${key}-err`;
+const invalid = (key) => (errors[key] ? 'true' : undefined);
+const describedBy = (key) => (errors[key] ? errId(key) : undefined);
+function clearError(key) { if (errors[key]) errors[key] = ''; }
 
 // Sync Queue Manager for offline resilience
 const syncQueue = new SyncQueueManager('amedeoBookingSyncQueue');
 
 const showFlightField = computed(() => form.tipoServizio === 'aeroporto');
 
-/* ---------- Dropdown prefisso telefonico con bandiere + tastiera ---------- */
+/* ---------- Dropdown prefisso telefonico con bandiere ---------- */
 const countryOpen = ref(false);
 const countrySearch = ref('');
 const selectedCountryIso2 = ref('it'); // corrisponde al default form.country = '+39'
 const countrySelectRef = ref(null);
-const countryBtnRef = ref(null);
+const countryTriggerRef = ref(null);
 const countrySearchRef = ref(null);
 const countryListRef = ref(null);
 
@@ -376,59 +385,67 @@ const filteredCountries = computed(() => {
   );
 });
 
-async function openCountry() {
-  countryOpen.value = true;
+// `focusSearch` = true solo quando l'apertura arriva da tastiera: su touch/mouse
+// non si sposta il focus (evita che la tastiera virtuale si apra da sola).
+async function openCountry(focusSearch = false) {
+  if (countryOpen.value) return;
   countrySearch.value = '';
-  await nextTick();
-  countrySearchRef.value?.focus();
+  countryOpen.value = true;
+  if (focusSearch) {
+    await nextTick();
+    countrySearchRef.value?.focus();
+  }
 }
-function closeCountry(returnFocus = true) {
+function closeCountry(returnFocus = false) {
+  if (!countryOpen.value) return;
   countryOpen.value = false;
-  if (returnFocus) countryBtnRef.value?.focus();
+  if (returnFocus) countryTriggerRef.value?.focus();
 }
-function toggleCountryDropdown() {
-  if (countryOpen.value) closeCountry(false);
-  else openCountry();
+function toggleCountryDropdown(event) {
+  if (countryOpen.value) closeCountry();
+  else openCountry(event && event.detail === 0); // detail 0 = click generato da tastiera
 }
 function selectCountry(c) {
   form.country = c.code;
   selectedCountryIso2.value = c.iso2;
-  closeCountry();
-}
-function onCountryKeydown(e) {
-  if (e.key === 'ArrowDown' && !countryOpen.value && e.target === countryBtnRef.value) {
-    e.preventDefault();
-    openCountry();
-    return;
-  }
-  if (!countryOpen.value) return;
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    e.stopPropagation();
-    closeCountry();
-    return;
-  }
-  if (e.key === 'Tab' && e.target !== countryBtnRef.value) {
-    countryOpen.value = false;
-    return;
-  }
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    const items = Array.from(countryListRef.value?.querySelectorAll('[role="option"]') || []);
-    if (!items.length) return;
-    e.preventDefault();
-    const i = items.indexOf(document.activeElement);
-    if (e.key === 'ArrowDown') {
-      items[i < 0 ? 0 : Math.min(i + 1, items.length - 1)].focus();
-    } else if (i <= 0) {
-      countrySearchRef.value?.focus();
-    } else {
-      items[i - 1].focus();
-    }
-  }
+  closeCountry(true);
 }
 function handleCountryClickOutside(event) {
   if (countryOpen.value && countrySelectRef.value && !countrySelectRef.value.contains(event.target)) {
     countryOpen.value = false;
+  }
+}
+// Tab verso un elemento fuori dal dropdown: chiudi (il focus è già altrove).
+function onCountryFocusout(event) {
+  const next = event.relatedTarget;
+  if (countryOpen.value && next && countrySelectRef.value && !countrySelectRef.value.contains(next)) {
+    countryOpen.value = false;
+  }
+}
+function countryOptions() {
+  return countryListRef.value ? Array.from(countryListRef.value.querySelectorAll('[role="option"]')) : [];
+}
+function focusFirstCountry() { countryOptions()[0]?.focus(); }
+// Invio nel campo di ricerca: seleziona il primo risultato (prima invece inviava l'intero form).
+function selectFirstCountry() {
+  const first = filteredCountries.value[0];
+  if (first) selectCountry(first);
+}
+function onOptionKeydown(event, index) {
+  const options = countryOptions();
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    options[Math.min(index + 1, options.length - 1)]?.focus();
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (index === 0) countrySearchRef.value?.focus();
+    else options[index - 1]?.focus();
+  } else if (event.key === 'Home') {
+    event.preventDefault();
+    options[0]?.focus();
+  } else if (event.key === 'End') {
+    event.preventDefault();
+    options[options.length - 1]?.focus();
   }
 }
 onMounted(() => document.addEventListener('click', handleCountryClickOutside));
@@ -452,6 +469,7 @@ function resetForm() {
     gdpr: false, website: '',
   });
   selectedCountryIso2.value = 'it';
+  Object.assign(errors, emptyErrors());
 }
 
 async function saveToFirestore(snapshot) {
@@ -549,46 +567,48 @@ async function saveToFirestore(snapshot) {
   return docRef;
 }
 
-// Firebase può essere caricato in modo lazy: se `db` non è ancora pronto,
-// aspetta fino a `ms` millisecondi prima di rinunciare al salvataggio.
-function waitForDb(ms = 3000) {
-  if (props.db) return Promise.resolve(props.db);
+// Attende (al massimo dbWaitMs) che il sito ospitante passi `db`: Firebase è caricato in lazy,
+// quindi un invio molto rapido non deve perdere il salvataggio su Firestore.
+function waitForDb() {
+  if (props.db || props.dbWaitMs <= 0) return Promise.resolve(props.db);
   return new Promise((resolve) => {
-    const stop = watch(() => props.db, (v) => {
-      if (v) { stop(); clearTimeout(timer); resolve(v); }
+    let timer = null;
+    const stop = watch(() => props.db, (value) => {
+      if (!value) return;
+      clearTimeout(timer);
+      stop();
+      resolve(value);
     });
-    const timer = setTimeout(() => { stop(); resolve(null); }, ms);
+    timer = setTimeout(() => { stop(); resolve(null); }, props.dbWaitMs);
   });
 }
 
-// Valida tutto; restituisce la chiave del primo campo non valido (o null).
-function validateForm() {
-  const m = t.value;
-  errors.name = form.name && validateName(form.name) ? '' : m.errName;
-  errors.phone = form.phone && validatePhone(form.phone) ? '' : m.errPhone;
-  errors.dataOra = form.dataOra && !validateDate(form.dataOra) ? m.errDate : '';
-  errors.volo = showFlightField.value && form.volo && !validateFlightNumber(form.volo) ? m.errFlight : '';
-  errors.passeggeri = form.passeggeri && !validateNumberPeople(form.passeggeri) ? m.errPeople : '';
-  errors.bagagli = form.bagagli && !validateNumberBags(form.bagagli) ? m.errBags : '';
-  errors.gdpr = form.gdpr ? '' : m.errGdpr;
-  return Object.keys(errors).find((k) => errors[k]) || null;
+function validateAll() {
+  const msg = t.value.errors;
+  const next = emptyErrors();
+  if (!validateName(form.name)) next.name = msg.name;
+  if (!validatePhone(form.phone)) next.phone = msg.phone;
+  if (form.dataOra && !validateDate(form.dataOra)) next.dataOra = msg.dataOra;
+  // il numero di volo si valida solo se il campo è visibile (servizio "aeroporto")
+  if (showFlightField.value && form.volo && !validateFlightNumber(form.volo)) next.volo = msg.volo;
+  if (form.passeggeri && !validateNumberPeople(form.passeggeri)) next.passeggeri = msg.passeggeri;
+  if (form.bagagli && !validateNumberBags(form.bagagli)) next.bagagli = msg.bagagli;
+  Object.assign(errors, next);
+  return Object.values(next).every((m) => !m);
 }
 
 async function submitBooking() {
+  if (sending.value) return;
   // honeypot: bot rilevato → reset silenzioso, nessun invio
   if (form.website) { resetForm(); return; }
+  if (!form.name || !form.phone || !form.gdpr) return;
 
-  formError.value = '';
-  showSuccess.value = false;
-  const firstInvalid = validateForm();
-  if (firstInvalid) {
+  // Validation (errori inline sotto i campi, nella lingua del sito)
+  if (!validateAll()) {
     await nextTick();
-    document.getElementById(fid(firstInvalid))?.focus();
+    formRef.value?.querySelector('[aria-invalid="true"]')?.focus();
     return;
   }
-
-  // Il campo volo è visibile solo per "aeroporto": non inviare valori nascosti
-  if (!showFlightField.value) form.volo = '';
 
   // Sanitize inputs
   form.name = sanitizeInput(form.name);
@@ -597,225 +617,230 @@ async function submitBooking() {
   form.volo = sanitizeInput(form.volo);
   note.value = sanitizeInput(note.value);
 
+  // Il volo esiste solo per il servizio "aeroporto": se il campo è nascosto non si invia.
+  const volo = showFlightField.value ? form.volo : '';
+  const payload = { ...form, volo, note: note.value };
+
   sending.value = true;
-  const servizioLabel = TIPI_SERVIZIO.find(s => s.id === form.tipoServizio);
-  const titoloItem = TITOLI.find(t2 => t2.id === form.titolo);
-  const titoloPrefix = titoloItem && titoloItem.id ? `${label(titoloItem)} ` : '';
-  const lines = [
-    `📋 ${form.name ? '' : ''}Nuova richiesta di prenotazione — ${props.brandName}`,
-    `Nome: ${titoloPrefix}${form.name}`,
-    `Telefono: ${form.country} ${form.phone}`,
-    `Servizio: ${servizioLabel ? label(servizioLabel) : form.tipoServizio}`,
-  ];
-  if (form.dataOra) lines.push(`Data/ora ritiro: ${form.dataOra.replace('T', ' ')}`);
-  if (form.zona) lines.push(`Punto di ritiro: ${form.zona}`);
-  if (form.destinazione) lines.push(`Destinazione: ${form.destinazione}`);
-  if (form.volo) lines.push(`Volo: ${form.volo}`);
-  if (form.passeggeri) lines.push(`Passeggeri: ${form.passeggeri}`);
-  if (form.bagagli) lines.push(`Bagagli: ${form.bagagli}`);
-  if (note.value) lines.push(`Note: ${note.value}`);
-
-  const text = encodeURIComponent(lines.join('\n'));
-
-  // ننتظر الحفظ في Firestore يخلص قبل ما نحول العميل لواتساب،
-  // عشان المتصفح (خصوصًا الموبايل) ميلغيش الطلب لما تتغير الصفحة.
-  // رسالة النجاح لا تظهر إلا إذا تم الحفظ فعلًا.
-  let saved = false;
   try {
+    const servizioLabel = TIPI_SERVIZIO.find(s => s.id === form.tipoServizio);
+    const titoloItem = TITOLI.find(t2 => t2.id === form.titolo);
+    const titoloPrefix = titoloItem && titoloItem.id ? `${label(titoloItem)} ` : '';
+    const lines = [
+      `📋 ${form.name ? '' : ''}Nuova richiesta di prenotazione — ${props.brandName}`,
+      `Nome: ${titoloPrefix}${form.name}`,
+      `Telefono: ${form.country} ${form.phone}`,
+      `Servizio: ${servizioLabel ? label(servizioLabel) : form.tipoServizio}`,
+    ];
+    if (form.dataOra) lines.push(`Data/ora ritiro: ${form.dataOra.replace('T', ' ')}`);
+    if (form.zona) lines.push(`Punto di ritiro: ${form.zona}`);
+    if (form.destinazione) lines.push(`Destinazione: ${form.destinazione}`);
+    if (volo) lines.push(`Volo: ${volo}`);
+    if (form.passeggeri) lines.push(`Passeggeri: ${form.passeggeri}`);
+    if (form.bagagli) lines.push(`Bagagli: ${form.bagagli}`);
+    if (note.value) lines.push(`Note: ${note.value}`);
+
+    const text = encodeURIComponent(lines.join('\n'));
+
+    // ننتظر الحفظ في Firestore يخلص قبل ما نحول العميل لواتساب،
+    // عشان المتصفح (خصوصًا الموبايل) ميلغيش الطلب لما تتغير الصفحة
     await waitForDb();
-    if (props.db) {
-      await saveToFirestore({ ...form, note: note.value });
-      saved = true;
+    try {
+      await saveToFirestore(payload);
+    } catch (error) {
+      // Il messaggio WhatsApp parte comunque: l'errore resta solo nel log.
+      console.error('Errore durante il salvataggio:', error);
     }
-  } catch (error) {
-    console.error('Errore durante il salvataggio:', error);
-  }
-  if (saved) {
+
+    // Il messaggio di successo compare solo dopo il tentativo di salvataggio.
     showSuccess.value = true;
-  } else {
-    formError.value = t.value.errSave;
-    setTimeout(() => (formError.value = ''), 8000);
+    emit('sent', payload);
+
+    window.location.href = `https://wa.me/${props.whatsappNumber}?text=${text}`;
+
+    resetForm();
+    note.value = '';
+    setTimeout(() => (showSuccess.value = false), 4000);
+  } finally {
+    sending.value = false;
   }
-  emit('sent', { ...form, note: note.value });
-
-  window.location.href = `https://wa.me/${props.whatsappNumber}?text=${text}`;
-
-  resetForm();
-  note.value = '';
-  sending.value = false;
-  setTimeout(() => (showSuccess.value = false), 4000);
 }
 </script>
 
 <template>
-  <form class="booking-form" novalidate @submit.prevent="submitBooking" :dir="lang === 'ar' ? 'rtl' : 'ltr'" :lang="lang">
+  <form ref="formRef" class="booking-form" @submit.prevent="submitBooking" :dir="lang === 'ar' ? 'rtl' : 'ltr'">
     <h3 class="bf-title">{{ t.title }}</h3>
 
     <!-- honeypot anti-bot: rimane nascosto e vuoto per un utente reale -->
     <input type="text" v-model="form.website" tabindex="-1" autocomplete="off" aria-hidden="true" class="bf-honeypot">
 
     <div class="bf-row">
-      <label class="bf-field bf-field-titolo">
-        <span>{{ t.titolo }}</span>
-        <select v-model="form.titolo">
+      <div class="bf-field bf-field-titolo">
+        <label :for="`${uid}-titolo`">{{ t.titolo }}</label>
+        <select :id="`${uid}-titolo`" v-model="form.titolo" autocomplete="honorific-prefix">
           <option v-for="item in TITOLI" :key="item.id" :value="item.id">{{ label(item) }}</option>
         </select>
-      </label>
+      </div>
 
       <div class="bf-field bf-field-name">
-        <label :for="fid('name')">{{ t.name }}</label>
-        <input :id="fid('name')" type="text" v-model.trim="form.name" maxlength="100" autocomplete="name"
-               aria-required="true" :aria-invalid="!!errors.name" :aria-describedby="errors.name ? fid('name-err') : null"
-               @input="clearError('name')">
-        <p v-if="errors.name" :id="fid('name-err')" class="bf-error" role="alert">{{ errors.name }}</p>
+        <label :for="`${uid}-name`">{{ t.name }}</label>
+        <input :id="`${uid}-name`" type="text" v-model.trim="form.name" required maxlength="100" autocomplete="name"
+               :aria-invalid="invalid('name')" :aria-describedby="describedBy('name')" @input="clearError('name')">
+        <p v-if="errors.name" :id="errId('name')" class="bf-error">{{ errors.name }}</p>
       </div>
     </div>
 
     <div class="bf-row">
       <div class="bf-field">
-        <label :for="fid('phone')">{{ t.whatsapp }}</label>
+        <label :for="`${uid}-phone`">{{ t.whatsapp }}</label>
         <div class="phone-row">
-          <div class="country-select" ref="countrySelectRef" :class="{ open: countryOpen }" @keydown="onCountryKeydown">
-            <button ref="countryBtnRef" type="button" class="country-select-btn" @click="toggleCountryDropdown"
-                    :aria-expanded="countryOpen" aria-haspopup="listbox"
-                    :aria-controls="countryOpen ? fid('country-list') : null"
+          <div class="country-select" ref="countrySelectRef" :class="{ open: countryOpen }"
+               @keydown.esc.stop.prevent="closeCountry(true)" @focusout="onCountryFocusout">
+            <button type="button" ref="countryTriggerRef" class="country-select-btn"
+                    @click="toggleCountryDropdown" @keydown.down.prevent="openCountry(true)"
+                    :aria-expanded="countryOpen ? 'true' : 'false'" aria-haspopup="listbox"
+                    :aria-controls="`${uid}-country-list`"
                     :aria-label="`${t.country}: ${selectedCountry.name} ${selectedCountry.code}`">
               <img :src="`https://flagcdn.com/24x18/${selectedCountry.iso2}.png`" alt="" width="22" height="16" class="country-flag">
               <span>{{ selectedCountry.code }}</span>
-              <svg class="country-chevron" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="country-chevron" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div v-if="countryOpen" class="country-dropdown">
-              <input ref="countrySearchRef" type="text" v-model="countrySearch" class="country-search"
-                     :placeholder="t.search" :aria-label="t.search" autocomplete="off" @click.stop
-                     @keydown.enter.prevent="filteredCountries[0] && selectCountry(filteredCountries[0])">
-              <div :id="fid('country-list')" ref="countryListRef" class="country-list" role="listbox" :aria-label="t.country">
-                <div v-for="c in filteredCountries" :key="c.code + c.iso2" class="country-item" role="option" tabindex="-1"
-                     :aria-selected="c.iso2 === selectedCountryIso2" @click="selectCountry(c)"
-                     @keydown.enter.prevent="selectCountry(c)" @keydown.space.prevent="selectCountry(c)">
+              <input type="text" ref="countrySearchRef" v-model="countrySearch" class="country-search"
+                     :placeholder="t.countrySearch" :aria-label="t.countrySearch" autocomplete="off"
+                     @click.stop @keydown.down.prevent="focusFirstCountry" @keydown.enter.prevent="selectFirstCountry">
+              <div v-if="filteredCountries.length" ref="countryListRef" :id="`${uid}-country-list`" class="country-list" role="listbox" :aria-label="t.country">
+                <button type="button" v-for="(c, i) in filteredCountries" :key="c.code + c.iso2" class="country-item"
+                        role="option" :tabindex="i === 0 ? 0 : -1" :aria-selected="c.iso2 === selectedCountryIso2 ? 'true' : 'false'"
+                        @click="selectCountry(c)" @keydown="onOptionKeydown($event, i)">
                   <img :src="`https://flagcdn.com/24x18/${c.iso2}.png`" alt="" width="22" height="16" loading="lazy">
                   <span class="country-item-name">{{ c.name }}</span>
                   <span class="country-item-code">{{ c.code }}</span>
-                </div>
+                </button>
               </div>
-              <div v-if="filteredCountries.length === 0" class="country-empty" role="status">{{ t.noResults }}</div>
+              <div v-else class="country-empty" role="status">{{ t.noResults }}</div>
             </div>
           </div>
-          <input :id="fid('phone')" type="tel" dir="ltr" v-model.trim="form.phone" maxlength="20" placeholder="333 000 0000"
-                 autocomplete="tel-national" aria-required="true" :aria-invalid="!!errors.phone"
-                 :aria-describedby="errors.phone ? fid('phone-err') : null" @input="clearError('phone')">
+          <input :id="`${uid}-phone`" type="tel" inputmode="tel" autocomplete="tel-national" v-model.trim="form.phone"
+                 required maxlength="20" placeholder="333 000 0000"
+                 :aria-invalid="invalid('phone')" :aria-describedby="describedBy('phone')" @input="clearError('phone')">
         </div>
-        <p v-if="errors.phone" :id="fid('phone-err')" class="bf-error" role="alert">{{ errors.phone }}</p>
+        <p v-if="errors.phone" :id="errId('phone')" class="bf-error">{{ errors.phone }}</p>
       </div>
 
-      <label class="bf-field">
-        <span>{{ t.lingua }}</span>
-        <select v-model="form.lingua">
+      <div class="bf-field">
+        <label :for="`${uid}-lingua`">{{ t.lingua }}</label>
+        <select :id="`${uid}-lingua`" v-model="form.lingua">
           <option v-for="l in LINGUE" :key="l.id" :value="l.id">{{ label(l) }}</option>
         </select>
-      </label>
+      </div>
     </div>
 
-    <label class="bf-field">
-      <span>{{ t.tipoServizio }}</span>
-      <select v-model="form.tipoServizio">
+    <div class="bf-field">
+      <label :for="`${uid}-tipo`">{{ t.tipoServizio }}</label>
+      <select :id="`${uid}-tipo`" v-model="form.tipoServizio">
         <option v-for="s in TIPI_SERVIZIO" :key="s.id" :value="s.id">{{ label(s) }}</option>
       </select>
-    </label>
+    </div>
 
     <div class="bf-field">
-      <label :for="fid('dataOra')">{{ t.dataOra }}</label>
-      <input :id="fid('dataOra')" type="datetime-local" v-model="form.dataOra" :aria-invalid="!!errors.dataOra"
-             :aria-describedby="errors.dataOra ? fid('dataOra-err') : null" @input="clearError('dataOra')">
-      <p v-if="errors.dataOra" :id="fid('dataOra-err')" class="bf-error" role="alert">{{ errors.dataOra }}</p>
+      <label :for="`${uid}-dataora`">{{ t.dataOra }}</label>
+      <input :id="`${uid}-dataora`" type="datetime-local" v-model="form.dataOra"
+             :aria-invalid="invalid('dataOra')" :aria-describedby="describedBy('dataOra')" @input="clearError('dataOra')">
+      <p v-if="errors.dataOra" :id="errId('dataOra')" class="bf-error">{{ errors.dataOra }}</p>
     </div>
 
     <div class="bf-row">
-      <label class="bf-field">
-        <span>{{ t.zona }}</span>
-        <input type="text" v-model.trim="form.zona" maxlength="120">
-      </label>
-      <label class="bf-field">
-        <span>{{ t.destinazione }}</span>
-        <input type="text" v-model.trim="form.destinazione" maxlength="120">
-      </label>
+      <div class="bf-field">
+        <label :for="`${uid}-zona`">{{ t.zona }}</label>
+        <input :id="`${uid}-zona`" type="text" v-model.trim="form.zona" maxlength="120">
+      </div>
+      <div class="bf-field">
+        <label :for="`${uid}-dest`">{{ t.destinazione }}</label>
+        <input :id="`${uid}-dest`" type="text" v-model.trim="form.destinazione" maxlength="120">
+      </div>
     </div>
 
     <div class="bf-row">
       <div class="bf-field" v-if="showFlightField">
-        <label :for="fid('volo')">{{ t.volo }}</label>
-        <input :id="fid('volo')" type="text" v-model.trim="form.volo" maxlength="20" :aria-invalid="!!errors.volo"
-               :aria-describedby="errors.volo ? fid('volo-err') : null" @input="clearError('volo')">
-        <p v-if="errors.volo" :id="fid('volo-err')" class="bf-error" role="alert">{{ errors.volo }}</p>
+        <label :for="`${uid}-volo`">{{ t.volo }}</label>
+        <input :id="`${uid}-volo`" type="text" v-model.trim="form.volo" maxlength="20" autocomplete="off"
+               :aria-invalid="invalid('volo')" :aria-describedby="describedBy('volo')" @input="clearError('volo')">
+        <p v-if="errors.volo" :id="errId('volo')" class="bf-error">{{ errors.volo }}</p>
       </div>
       <div class="bf-field">
-        <label :for="fid('passeggeri')">{{ t.passeggeri }}</label>
-        <input :id="fid('passeggeri')" type="number" inputmode="numeric" min="1" v-model="form.passeggeri"
-               :aria-invalid="!!errors.passeggeri" :aria-describedby="errors.passeggeri ? fid('passeggeri-err') : null"
-               @input="clearError('passeggeri')">
-        <p v-if="errors.passeggeri" :id="fid('passeggeri-err')" class="bf-error" role="alert">{{ errors.passeggeri }}</p>
+        <label :for="`${uid}-pax`">{{ t.passeggeri }}</label>
+        <input :id="`${uid}-pax`" type="number" inputmode="numeric" min="1" v-model="form.passeggeri"
+               :aria-invalid="invalid('passeggeri')" :aria-describedby="describedBy('passeggeri')" @input="clearError('passeggeri')">
+        <p v-if="errors.passeggeri" :id="errId('passeggeri')" class="bf-error">{{ errors.passeggeri }}</p>
       </div>
       <div class="bf-field">
-        <label :for="fid('bagagli')">{{ t.bagagli }}</label>
-        <input :id="fid('bagagli')" type="number" inputmode="numeric" min="0" v-model="form.bagagli"
-               :aria-invalid="!!errors.bagagli" :aria-describedby="errors.bagagli ? fid('bagagli-err') : null"
-               @input="clearError('bagagli')">
-        <p v-if="errors.bagagli" :id="fid('bagagli-err')" class="bf-error" role="alert">{{ errors.bagagli }}</p>
+        <label :for="`${uid}-bags`">{{ t.bagagli }}</label>
+        <input :id="`${uid}-bags`" type="number" inputmode="numeric" min="0" v-model="form.bagagli"
+               :aria-invalid="invalid('bagagli')" :aria-describedby="describedBy('bagagli')" @input="clearError('bagagli')">
+        <p v-if="errors.bagagli" :id="errId('bagagli')" class="bf-error">{{ errors.bagagli }}</p>
       </div>
     </div>
 
-    <div class="bf-gdpr-wrap">
-      <label class="bf-gdpr">
-        <input :id="fid('gdpr')" type="checkbox" v-model="form.gdpr" aria-required="true" :aria-invalid="!!errors.gdpr"
-               :aria-describedby="errors.gdpr ? fid('gdpr-err') : null" @change="clearError('gdpr')">
-        <span>{{ t.gdpr }}</span>
-      </label>
-      <p v-if="errors.gdpr" :id="fid('gdpr-err')" class="bf-error" role="alert">{{ errors.gdpr }}</p>
-    </div>
+    <label class="bf-gdpr">
+      <input type="checkbox" v-model="form.gdpr" required>
+      <span>{{ t.gdpr }}</span>
+    </label>
 
-    <button type="submit" class="bf-submit" :disabled="sending" :aria-busy="sending">{{ t.submit }}</button>
-
-    <div role="status" aria-live="polite">
-      <p v-if="showSuccess" class="bf-success">{{ t.success }}</p>
+    <div class="bf-actions">
+      <button type="submit" class="bf-submit" :disabled="sending" :aria-busy="sending ? 'true' : 'false'">
+        {{ sending ? t.sending : t.submit }}
+      </button>
+      <!-- regione live sempre presente nel DOM, così il messaggio viene annunciato -->
+      <div class="bf-status" role="status" aria-live="polite">
+        <p v-if="showSuccess" class="bf-success">{{ t.success }}</p>
+      </div>
     </div>
-    <p v-if="formError" class="bf-error" role="alert">{{ formError }}</p>
   </form>
 </template>
 
 <style scoped>
 .booking-form { display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
-.bf-title { margin: 0 0 4px; font-size: 1.3rem; color: var(--brass, #B08D57); }
-.bf-honeypot { position: absolute; inset-inline-start: -9999px; width: 1px; height: 1px; opacity: 0; }
+.bf-title { margin: 0 0 4px; font-size: 1.3rem; color: var(--brass-bright, #D9B77F); }
+.bf-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .bf-field { display: flex; flex-direction: column; gap: 4px; flex: 1; font-size: .85rem; }
-.bf-field > span, .bf-field > label { opacity: .85; }
-.bf-field > input, .bf-field > select, .phone-row > input {
-  padding: 10px 12px; border-radius: 8px;
-  border: 1px solid var(--steel, #8B93AA); background: var(--surface, #14181D); color: var(--paper, #EDEAE3);
-}
-.bf-field > [aria-invalid="true"], .phone-row > [aria-invalid="true"] { border-color: var(--danger, #E5736B); }
+.bf-field > label { opacity: .85; }
+.bf-field input, .bf-field select { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line, #262B31); background: var(--surface, #14181D); color: var(--paper, #EDEAE3); }
 .bf-field-titolo { flex: 0 0 110px; min-width: 90px; }
 .bf-field-titolo select { padding-inline: 8px 6px; }
 .bf-field-name { flex: 1 1 auto; }
 .bf-row { display: flex; gap: 12px; flex-wrap: wrap; }
-.bf-gdpr-wrap { display: flex; flex-direction: column; gap: 4px; }
 .bf-gdpr { display: flex; align-items: flex-start; gap: 8px; font-size: .78rem; opacity: .85; }
-.bf-submit { padding: 14px; min-height: 48px; border-radius: 8px; border: none; background: var(--brass, #B08D57); color: #12151c; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+.bf-gdpr input { accent-color: var(--brass, #B08D57); }
+
+/* Stato di errore: bordo + messaggio testuale (mai solo colore) */
+.bf-field input[aria-invalid="true"] { border-color: var(--danger, #F07167); }
+.bf-error { margin: 0; color: var(--danger, #F07167); font-size: .8rem; }
+
+/* Focus visibile: nel sito `input:focus{outline:none}` (globale) toglieva l'anello */
+.bf-field input:focus-visible,
+.bf-field select:focus-visible,
+.bf-gdpr input:focus-visible,
+.country-select-btn:focus-visible,
+.bf-submit:focus-visible { outline: 2px solid var(--brass, #B08D57); outline-offset: 2px; }
+.country-dropdown .country-search:focus-visible { outline-offset: -2px; }
+.country-item:focus-visible { outline: 2px solid var(--brass, #B08D57); outline-offset: -2px; }
+
+/* Pulsante di invio: stessi token di .btn-primary del sito */
+.bf-actions { display: flex; flex-direction: column; }
+.bf-submit { padding: 14px; min-height: 48px; border-radius: 8px; border: none; background: var(--brass, #B08D57); color: var(--ink, #0C0F12); font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+.bf-submit:hover:not(:disabled) { background: var(--brass-bright, #D9B77F); }
+.bf-submit:active:not(:disabled) { filter: brightness(.92); }
 .bf-submit:disabled { opacity: .6; cursor: not-allowed; }
-.bf-success { margin: 0; color: var(--success, #4CAF6D); font-size: .85rem; }
-.bf-error { margin: 0; color: var(--danger, #E5736B); font-size: .8rem; }
+.bf-success { margin: 10px 0 0; color: var(--ok, #4CAF6D); font-size: .85rem; }
 
-/* Focus visibile (prevale sul reset globale input:focus{outline:none} di App.vue) */
-.bf-field > input:focus-visible, .bf-field > select:focus-visible, .phone-row > input:focus-visible,
-.country-select-btn:focus-visible, .bf-submit:focus-visible, .bf-gdpr input:focus-visible {
-  outline: 2px solid var(--brass, #B08D57); outline-offset: 2px;
-}
-
-/* Dropdown prefisso telefonico con bandiere */
+/* Dropdown prefisso telefonico con bandiere — stesso stile dell'originale */
 .phone-row{display:flex;gap:8px;}
-.phone-row > input{flex:1;min-width:0;}
+.phone-row input{flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--line,#262B31);background:var(--surface,#14181D);color:var(--paper,#EDEAE3);}
 .country-select{position:relative;flex:0 0 108px;}
 .country-select-btn{
   display:flex;align-items:center;gap:6px;width:100%;height:100%;
-  background:var(--surface,#14181D);border:1px solid var(--steel,#8B93AA);color:var(--paper,#EDEAE3);
+  background:var(--surface,#14181D);border:1px solid var(--line,#262B31);color:var(--paper,#EDEAE3);
   padding:10px 8px;border-radius:8px;font-family:'Work Sans',sans-serif;font-size:0.88rem;
   cursor:pointer;
 }
@@ -833,18 +858,17 @@ async function submitBooking() {
   border-bottom:1px solid var(--line,#262B31);color:var(--paper,#EDEAE3);
   font-family:'Work Sans',sans-serif;font-size:0.88rem;box-sizing:border-box;
 }
-.country-search:focus-visible{outline:none;box-shadow:inset 0 -2px 0 var(--brass,#B08D57);}
 .country-list{max-height:260px;overflow-y:auto;}
 .country-item{
-  display:flex;align-items:center;gap:10px;width:100%;min-height:44px;box-sizing:border-box;
+  display:flex;align-items:center;gap:10px;width:100%;min-height:44px;
   padding:11px 14px;background:none;border:none;color:var(--paper,#EDEAE3);
   font-family:'Work Sans',sans-serif;font-size:0.86rem;text-align:start;
   cursor:pointer;
 }
 .country-item img{border-radius:2px;flex-shrink:0;}
 .country-item:hover{background:rgba(176,141,87,0.12);}
-.country-item:focus-visible{outline:2px solid var(--brass,#B08D57);outline-offset:-2px;background:rgba(176,141,87,0.12);}
-.country-item[aria-selected="true"] .country-item-name{font-weight:700;}
+.country-item[aria-selected="true"]{background:rgba(176,141,87,0.2);}
+.country-item:active{background:rgba(176,141,87,0.28);}
 .country-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .country-item-code{color:var(--steel,#8B93AA);font-family:'IBM Plex Mono',monospace;font-size:0.8rem;flex-shrink:0;}
 .country-empty{padding:16px 14px;color:var(--steel,#8B93AA);font-size:0.86rem;text-align:center;}

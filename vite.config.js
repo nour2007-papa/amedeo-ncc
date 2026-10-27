@@ -18,8 +18,40 @@ function deferMainCssPlugin() {
   };
 }
 
+
+// Preload del chunk di App.vue (+ dipendenze e CSS) già dall'HTML: evita la
+// cascata index.html -> main.js -> App-xxx.js/css che ritarda l'LCP.
+// Nota: viene precaricato anche su /aeroporti/* e sulla pagina gestione.
+function preloadAppChunkPlugin() {
+  return {
+    name: 'preload-app-chunk',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        try {
+          if (!ctx || !ctx.bundle) return html; // dev server: nessun bundle
+          const app = Object.values(ctx.bundle).find(
+            (c) => c.type === 'chunk' && c.isDynamicEntry && c.facadeModuleId && /[\\/]src[\\/]App\.vue$/.test(c.facadeModuleId)
+          );
+          if (!app) return html;
+          const tags = [`<link rel="modulepreload" crossorigin href="/${app.fileName}">`];
+          for (const imp of app.imports || []) {
+            tags.push(`<link rel="modulepreload" crossorigin href="/${imp}">`);
+          }
+          for (const css of (app.viteMetadata && app.viteMetadata.importedCss) || []) {
+            tags.push(`<link rel="preload" as="style" crossorigin href="/${css}">`);
+          }
+          return html.replace('</head>', `  ${tags.join('\n  ')}\n</head>`);
+        } catch (e) {
+          return html;
+        }
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [vue(), versionPlugin(), deferMainCssPlugin()],
+  plugins: [vue(), versionPlugin(), deferMainCssPlugin(), preloadAppChunkPlugin()],
   build: {
     // السطر الجديد لإخفاء التحذير الأصفر (رفع الحد إلى 1 ميجابايت)
     chunkSizeWarningLimit: 1000,

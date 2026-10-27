@@ -155,7 +155,7 @@ const boardRoutes = computed(() => [...t.value.routes, ...t.value.routes]);
    ========================================================= */
 function imgSrcset(url) {
   if (!url || !url.includes('images.unsplash.com')) return undefined;
-  const w = (n) => url.replace(/([?&])w=\d+/, `$1w=${n}`);
+  const w = (n) => url.replace(/([?&])w=\d+/, `$1w=${n}`).replace(/([?&])q=\d+/, '$1q=65');
   return `${w(480)} 480w, ${w(768)} 768w, ${w(1200)} 1200w`;
 }
 const CARD_IMG_SIZES = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px';
@@ -380,7 +380,13 @@ onUnmounted(() => {
    headline so the transform is harmless either way). Tracked
    with a rAF-throttled scroll listener to avoid layout thrash.
    ========================================================= */
-const heroImgPriority = (typeof window !== 'undefined' && window.matchMedia('(min-width: 901px)').matches) ? 'high' : 'low';
+// L'immagine hero è visibile solo da 901px in su (display:none sotto):
+// su mobile non la renderizziamo affatto, così il browser non scarica ~120 KiB inutili.
+const heroMq = typeof window !== 'undefined' ? window.matchMedia('(min-width: 901px)') : null;
+const showHeroImg = ref(heroMq ? heroMq.matches : true);
+const onHeroMq = (e) => { showHeroImg.value = e.matches; };
+onMounted(() => { if (heroMq) heroMq.addEventListener('change', onHeroMq); });
+onUnmounted(() => { if (heroMq) heroMq.removeEventListener('change', onHeroMq); });
 const griffinOffset = ref(0);
 let griffinTicking = false;
 function updateGriffinOffset() {
@@ -526,11 +532,12 @@ onUnmounted(() => {
     <p class="sub">{{ t.hero_sub }}</p>
 
     <img
+      v-if="showHeroImg"
       :src="grifoneHero"
       alt="Grifone NCC"
       class="hero-griffin"
       loading="eager"
-      :fetchpriority="heroImgPriority"
+      fetchpriority="high"
       width="400"
       height="261"
       :style="{ '--griffin-float': griffinOffset + 'px' }"

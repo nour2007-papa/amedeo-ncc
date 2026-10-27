@@ -1,39 +1,10 @@
-# robots.txt for Grifone NCC - Autista Privato Milano
-# Guida per i crawler dei motori di ricerca
+# robots.txt - Grifone NCC
 
-# Disallow crawling of admin sections
-Disallow: /*admin*
-Disallow: /*gestione*
-
-# Disallow crawling of development files
-Disallow: /*.env*
-Disallow: /*node_modules*
-
-# Allow crawling of public assets
-Allow: /public/
-Allow: /assets/
-
-# Sitemap location
-Sitemap: https://www.amedeo-ncc.vercel.app/sitemap.xml
-
-# Crawl delay (optional, to prevent overloading)
-Crawl-delay: 1
-
-# User agent specifications
 User-agent: *
 Allow: /
+Disallow: /*gestione*
+Disallow: /*admin*
 
-# Specific rules for major search engines
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Slurp
-Allow: /
-
-# Block known bad bots
 User-agent: AhrefsBot
 Disallow: /
 
@@ -42,3 +13,5 @@ Disallow: /
 
 User-agent: DotBot
 Disallow: /
+
+Sitemap: https://amedeo-ncc.vercel.app/sitemap.xml

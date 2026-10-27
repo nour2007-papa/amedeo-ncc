@@ -918,7 +918,7 @@ onUnmounted(() => {
   @media(min-width:901px){
     .hero-griffin{
       display:block;
-      position:absolute;top:30px;right:0;width:220px;margin:0;z-index:0;
+      position:absolute;top:30px;right:0;width:220px;height:auto;margin:0;z-index:0;
       opacity:.92;pointer-events:none;user-select:none;
       transform:translateY(calc(-1 * var(--griffin-float,0px)));
       transition:transform .15s linear;

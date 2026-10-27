@@ -380,6 +380,7 @@ onUnmounted(() => {
    headline so the transform is harmless either way). Tracked
    with a rAF-throttled scroll listener to avoid layout thrash.
    ========================================================= */
+const heroImgPriority = (typeof window !== 'undefined' && window.matchMedia('(min-width: 901px)').matches) ? 'high' : 'low';
 const griffinOffset = ref(0);
 let griffinTicking = false;
 function updateGriffinOffset() {
@@ -520,45 +521,44 @@ onUnmounted(() => {
 <main id="main-content">
 <section class="hero wrap" aria-labelledby="hero-title">
   <div class="hero-content">
-    <div class="hero-eyebrow reveal delay-1" v-reveal>{{ t.hero_eyebrow }}</div>
-    <h1 id="hero-title" class="reveal delay-2" v-reveal v-html="t.hero_title"></h1>
-    <p class="sub reveal delay-3" v-reveal>{{ t.hero_sub }}</p>
+    <div class="hero-eyebrow">{{ t.hero_eyebrow }}</div>
+    <h1 id="hero-title" v-html="t.hero_title"></h1>
+    <p class="sub">{{ t.hero_sub }}</p>
 
     <img
       :src="grifoneHero"
       alt="Grifone NCC"
-      class="hero-griffin reveal delay-3"
-      v-reveal
+      class="hero-griffin"
       loading="eager"
-      fetchpriority="high"
+      :fetchpriority="heroImgPriority"
       width="400"
       height="261"
       :style="{ '--griffin-float': griffinOffset + 'px' }"
     >
 
-    <div class="cta-row reveal delay-4" v-reveal>
+    <div class="cta-row">
       <a href="#contatti" class="btn btn-primary">{{ t.hero_cta1 }}</a>
       <a href="#servizi" class="btn btn-ghost">{{ t.hero_cta2 }}</a>
     </div>
   </div>
 
-  <div class="search-box reveal delay-5" v-reveal>
+  <div class="search-box">
     <div class="search-grid">
       <div class="search-field">
-        <label>{{ t.search_from }}</label>
-        <input type="text" v-model="search.from" placeholder="—">
+        <label for="hs-from">{{ t.search_from }}</label>
+        <input id="hs-from" type="text" v-model="search.from" placeholder="—">
       </div>
       <div class="search-field">
-        <label>{{ t.search_to }}</label>
-        <input type="text" v-model="search.to" placeholder="—">
+        <label for="hs-to">{{ t.search_to }}</label>
+        <input id="hs-to" type="text" v-model="search.to" placeholder="—">
       </div>
       <div class="search-field">
-        <label>{{ t.search_date }}</label>
-        <input type="date" v-model="search.date">
+        <label for="hs-date">{{ t.search_date }}</label>
+        <input id="hs-date" type="date" v-model="search.date">
       </div>
       <div class="search-field">
-        <label>{{ t.search_service }}</label>
-        <select v-model="search.serviceIndex">
+        <label for="hs-service">{{ t.search_service }}</label>
+        <select id="hs-service" v-model="search.serviceIndex">
           <option v-for="(v,i) in serviceFormValues" :key="v" :value="i">{{ t['s'+(i+1)+'_title'] }}</option>
         </select>
       </div>
@@ -609,7 +609,7 @@ onUnmounted(() => {
       <div v-else class="car-photo broken" role="img" :aria-label="t.img_unavailable || 'IMAGE NOT AVAILABLE'">{{ t.img_unavailable || 'IMAGE NOT AVAILABLE' }}</div>
       <div class="car-body">
         <div class="code">{{ c.code }}</div>
-        <h4>{{ c.name }}</h4>
+        <h3>{{ c.name }}</h3>
         <p>{{ t[c.descKey] }}</p>
         <button class="car-btn" @click="selectCar(c.name)" :aria-label="`${t.btn_book_car}: ${c.name}`">{{ t.btn_book_car }}</button>
       </div>
@@ -643,7 +643,7 @@ onUnmounted(() => {
       <div v-else class="car-photo broken" role="img" :aria-label="t.img_unavailable || 'IMAGE NOT AVAILABLE'">{{ t.img_unavailable || 'IMAGE NOT AVAILABLE' }}</div>
       <div class="car-body">
         <div class="code">{{ trip.code }}</div>
-        <h4>{{ t[trip.titleKey] }}</h4>
+        <h3>{{ t[trip.titleKey] }}</h3>
         <p>{{ t[trip.descKey] }}</p>
         <button class="car-btn" @click="onCardAction(trip)" :aria-label="`${trip.kind === 'otherItaly' ? t.btn_other_italy : (trip.kind === 'custom' ? t.btn_custom_trip : t.btn_book_trip)}: ${trip.name || t[trip.titleKey]}`">
           {{ trip.kind === 'otherItaly' ? t.btn_other_italy : (trip.kind === 'custom' ? t.btn_custom_trip : t.btn_book_trip) }}
@@ -715,7 +715,7 @@ onUnmounted(() => {
 <footer class="wrap" role="contentinfo">
   <div class="footer-inner">
     <div class="footer-col">
-      <h4>{{ t.foot_nav }}</h4>
+      <h3>{{ t.foot_nav }}</h3>
       <nav :aria-label="a11y.navFooter">
         <a href="#servizi">{{ t.nav_services }}</a>
         <a href="#flotta">{{ t.nav_fleet }}</a>
@@ -725,7 +725,7 @@ onUnmounted(() => {
       </nav>
     </div>
     <div class="footer-col">
-      <h4>{{ t.foot_legal }}</h4>
+      <h3>{{ t.foot_legal }}</h3>
       <nav :aria-label="a11y.legal">
         <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_privacy }}</a>
         <a href="#" @click.prevent="openPrivacyModal">{{ t.foot_cookies }}</a>
@@ -733,7 +733,7 @@ onUnmounted(() => {
       </nav>
     </div>
     <div class="footer-col">
-      <h4>{{ t.foot_contact_title }}</h4>
+      <h3>{{ t.foot_contact_title }}</h3>
       <nav :aria-label="a11y.directContacts">
         <a :href="`tel:+${WHATSAPP_NUMBER}`" :aria-label="`${a11y.call}: +39 352 000 3122`">+39 352 000 3122</a>
         <a href="mailto:amedeo018@libero.it" :aria-label="`${a11y.email}: amedeo018@libero.it`">amedeo018@libero.it</a>
@@ -826,7 +826,7 @@ onUnmounted(() => {
   .mono{font-family:'IBM Plex Mono',monospace;}
   html[dir="rtl"] body{font-family:'Tajawal','Work Sans',sans-serif;}
   html[dir="rtl"] .mono,html[dir="rtl"] .stub-code,html[dir="rtl"] .board-item,html[dir="rtl"] .info-line span:last-child{font-family:'IBM Plex Mono','Tajawal',monospace;}
-  html[dir="rtl"] h1,html[dir="rtl"] h2,html[dir="rtl"] .car h4,html[dir="rtl"] .stub h3,html[dir="rtl"] .stat b{font-family:'Cairo','Fraunces',serif;}
+  html[dir="rtl"] h1,html[dir="rtl"] h2,html[dir="rtl"] .car h3,html[dir="rtl"] .stub h3,html[dir="rtl"] .stat b{font-family:'Cairo','Fraunces',serif;}
   html[dir="rtl"] h1{line-height:1.25;}
   html[dir="rtl"] h1 em{font-style:normal;}
   html[dir="rtl"] .logo-text{font-family:'Cairo',serif;}
@@ -1001,7 +1001,7 @@ onUnmounted(() => {
   .car-photo:hover{filter:grayscale(0%) contrast(1.1);}
   .car-body{padding:26px 28px 34px;}
   .car .code{font-family:'IBM Plex Mono',monospace;color:var(--brass);font-size:0.72rem;letter-spacing:0.1em;}
-  .car h4{font-family:'Fraunces',serif;font-size:1.4rem;font-weight:500;margin:10px 0 8px;}
+  .car h3{font-family:'Fraunces',serif;font-size:1.4rem;font-weight:500;margin:10px 0 8px;}
   .car p{color:var(--steel);font-size:0.88rem;}
   .car-btn{
     margin-top:18px;background:none;border:1px solid var(--line);color:var(--brass-bright);
@@ -1209,7 +1209,7 @@ onUnmounted(() => {
     color:var(--steel);font-size:0.78rem;
   }
   .footer-inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:32px;margin-bottom:28px;}
-  .footer-col h4{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--brass);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;}
+  .footer-col h3{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--brass);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;}
   .footer-col nav{display:block;padding:0;max-width:none;margin:0;}
   .footer-col a{display:block;color:var(--steel);font-size:0.82rem;padding:4px 0;transition:color .2s;}
   .footer-col a:hover{color:var(--paper);}
